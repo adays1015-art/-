@@ -274,6 +274,92 @@ async function consumeFromExplicit(
   return parts.length ? parts.join(" · ") : undefined;
 }
 
+/**
+ * Reconcile raw-material deduction when an ALREADY 진행중/완료 LOT is edited
+ * with new actual-input amounts (e.g. "생산 중 몇 그람 더 들어감").
+ *
+ * Deducts / restocks ONLY the delta versus what was already recorded in
+ * 품목생산투입원료, so editing an in-flight LOT never double-deducts. The delta
+ * is applied through consumeFromExplicit (unit conversion, all-or-nothing, and
+ * negative amounts = restock all reused). A delta row is appended to
+ * 품목생산투입원료 so the running total — and the next edit's baseline — stay
+ * correct, and cost math keeps summing to the true actual usage.
+ *
+ * SAFETY: if the LOT has NO existing 투입원료 rows we cannot know what was
+ * already deducted at creation, so we SKIP and warn rather than risk a double
+ * deduction (e.g. legacy LOTs created before this audit trail existed).
+ */
+async function reconcileMaterials(
+  lot: ItemLot,
+  newMaterials: Array<{ materialCode: string; materialName?: string; actualQty: number; unit?: string }>,
+): Promise<string | undefined> {
+  if (newMaterials.length === 0) return undefined;
+  const { listExecutionMaterials, appendExecutionMaterials } = await import("./productionExecution");
+  // Same lot-matching predicate used by delete/hasExec — by lotId OR lotCode.
+  const allExecs = (await listExecutionMaterials()).filter(
+    (e) => (e.lotId && e.lotId === lot.id) || (e.lotNo && lot.lotCode && e.lotNo === lot.lotCode),
+  );
+  if (allExecs.length === 0) {
+    return "기존 투입원료 기록이 없어 재차감을 건너뜁니다 (이중 차감 방지). " +
+      "수량 정정이 필요하면 해당 LOT을 폐기 후 재생성하세요.";
+  }
+  // Previously-deducted running total per materialCode (usage unit — the same
+  // unit the new actualMaterials use; consumeFromExplicit converts to stock
+  // unit internally).
+  const prevByCode = new Map<string, number>();
+  for (const e of allExecs) {
+    const code = String(e.materialCode || "").trim();
+    if (!code) continue;
+    prevByCode.set(code, (prevByCode.get(code) ?? 0) + (e.actualQty || 0));
+  }
+  // Delta per material = new stated total − already deducted.
+  const deltas = newMaterials
+    .map((m) => {
+      const code = String(m.materialCode || "").trim();
+      return {
+        materialCode: code,
+        materialName: m.materialName,
+        actualQty: m.actualQty - (prevByCode.get(code) ?? 0),
+        unit: m.unit,
+      };
+    })
+    .filter((d) => d.materialCode && Math.abs(d.actualQty) > 1e-9);
+  if (deltas.length === 0) return "투입량 변경 없음 — 재고 변동 없습니다.";
+
+  // Apply ONLY the delta. consumeFromExplicit deducts positive deltas and
+  // restocks negative ones (consumeMaterials treats a negative amount as a
+  // stock increase), with the usual unit conversion + all-or-nothing guard.
+  const warning = await consumeFromExplicit(lot, deltas);
+
+  // Append delta rows so the running total stays accurate for cost math and
+  // for the next edit's baseline. unitCost is pulled from 원료재고.
+  const { listMaterials } = await import("./materials");
+  const mats = await listMaterials();
+  await appendExecutionMaterials(
+    deltas.map((d) => {
+      const found = mats.find((x) => x.id === d.materialCode || x.materialCode === d.materialCode);
+      const unitCost = found?.unitCost ?? found?.unitPrice ?? 0;
+      return {
+        lotId: lot.id,
+        lotNo: lot.lotCode,
+        itemNo: lot.itemNo,
+        materialCode: d.materialCode,
+        materialName: d.materialName ?? found?.materialName ?? found?.name ?? d.materialCode,
+        baseQty: 0,
+        multiplier: 1,
+        baseTotalQty: 0,
+        adjustmentQty: d.actualQty,
+        actualQty: d.actualQty,
+        unit: d.unit ?? found?.unit ?? "",
+        unitCost,
+        materialCost: d.actualQty * unitCost,
+        note: "편집 차액 반영",
+      };
+    }),
+  );
+  return warning;
+}
+
 export async function createItemLot(
   input: Omit<ItemLot, "id" | "lotCode" | "completedQty" | "defectQty" | "productType"> & {
     completedQty?: number;
@@ -379,7 +465,7 @@ export async function createItemLot(
 export async function updateItemLot(
   id: string,
   patch: Partial<ItemLot> & {
-    actualMaterials?: Array<{ materialCode: string; materialName?: string; actualQty: number }>;
+    actualMaterials?: Array<{ materialCode: string; materialName?: string; actualQty: number; unit?: string }>;
   },
 ): Promise<ItemLot | null> {
   const existing = (await listItemLots()).find((l) => l.id === id);
@@ -390,9 +476,21 @@ export async function updateItemLot(
     (patch.status === "진행중" || patch.status === "완료") &&
     existing.status !== "진행중" &&
     existing.status !== "완료";
+  // An edit that keeps an already-진행중/완료 LOT in a progressing state but
+  // restates its actual-input amounts (e.g. extra grams logged mid-run).
+  const editedWhileProgressing =
+    !becameProgressing &&
+    (existing.status === "진행중" || existing.status === "완료") &&
+    (merged.status === "진행중" || merged.status === "완료") &&
+    (patch.actualMaterials?.length ?? 0) > 0;
   let warning: string | undefined;
   if (becameProgressing) {
     warning = await consumeFromExplicit(merged, patch.actualMaterials ?? []);
+  } else if (editedWhileProgressing) {
+    // Re-deduct ONLY the delta vs what was already recorded — never the full
+    // amount again (that was the bug: edits saved to the LOT row but never
+    // touched 원료재고).
+    warning = await reconcileMaterials(merged, patch.actualMaterials ?? []);
   }
 
   if ((await useSheets())) {
