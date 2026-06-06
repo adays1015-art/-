@@ -466,6 +466,12 @@ export async function updateItemLot(
   id: string,
   patch: Partial<ItemLot> & {
     actualMaterials?: Array<{ materialCode: string; materialName?: string; actualQty: number; unit?: string }>;
+    // Explicit opt-in. Only when TRUE does an edit to an already-진행중/완료 LOT
+    // reconcile 원료재고 against the restated 실투입량. Left false/undefined for
+    // metadata-only edits (date, 공정, 메모 …) so they NEVER move stock — this
+    // guards against the client re-sending base amounts and accidentally
+    // restocking a LOT's original 조정량.
+    applyMaterialEdit?: boolean;
   },
 ): Promise<ItemLot | null> {
   const existing = (await listItemLots()).find((l) => l.id === id);
@@ -476,10 +482,13 @@ export async function updateItemLot(
     (patch.status === "진행중" || patch.status === "완료") &&
     existing.status !== "진행중" &&
     existing.status !== "완료";
-  // An edit that keeps an already-진행중/완료 LOT in a progressing state but
-  // restates its actual-input amounts (e.g. extra grams logged mid-run).
+  // An edit that keeps an already-진행중/완료 LOT in a progressing state and
+  // EXPLICITLY restates its actual-input amounts (e.g. extra grams logged
+  // mid-run). Gated behind applyMaterialEdit so unrelated edits never touch
+  // stock.
   const editedWhileProgressing =
     !becameProgressing &&
+    patch.applyMaterialEdit === true &&
     (existing.status === "진행중" || existing.status === "완료") &&
     (merged.status === "진행중" || merged.status === "완료") &&
     (patch.actualMaterials?.length ?? 0) > 0;

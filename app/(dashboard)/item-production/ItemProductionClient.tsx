@@ -165,6 +165,9 @@ export default function ItemProductionClient({
   const [editing, setEditing] = useState<EditableLot | null>(null);
   const [inline, setInline] = useState<EditableLot>(emptyLot());
   const [adjustments, setAdjustments] = useState<Record<string, number>>({});
+  // Opt-in for re-deducting 원료재고 when editing an already-진행중/완료 LOT.
+  // OFF by default so metadata-only edits never move stock.
+  const [applyMaterialEdit, setApplyMaterialEdit] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const { save, saving, error: saveError, clearError } = useResourceSave("/api/item-production");
   const [savingExec, setSavingExec] = useState(false);
@@ -428,6 +431,9 @@ export default function ItemProductionClient({
       actualMaterials: actualMaterialsPayload,
       actualMaterialTotalCost: Math.round(actualSummary.totalMaterialCost),
       actualUnitCost: Math.round(actualSummary.unitCost),
+      // Only an explicit, in-modal "실투입량 정정" edit re-deducts stock. New
+      // LOTs (POST) deduct unconditionally and ignore this flag server-side.
+      applyMaterialEdit: isModal && applyMaterialEdit,
     };
     // process-fields roundtrip — sent snapshot kept for mismatch detection.
     const sentProcess = {
@@ -588,6 +594,7 @@ export default function ItemProductionClient({
       if (isModal) setEditing(null);
       else setInline(emptyLot()); // reset for the next LOT
       setAdjustments({});
+      setApplyMaterialEdit(false);
     }
   }
 
@@ -1019,7 +1026,7 @@ export default function ItemProductionClient({
                         ><Trash2 size={14} /></button>
                       )}
                       <button
-                        onClick={() => { setEditing({ ...l }); setWarning(null); }}
+                        onClick={() => { setEditing({ ...l }); setWarning(null); setAdjustments({}); setApplyMaterialEdit(false); }}
                         disabled={!canEditProd || l.status === "폐기"}
                         className="text-ink-500 hover:text-ink-900 disabled:opacity-40 disabled:cursor-not-allowed"
                         title={l.status === "폐기" ? "폐기된 LOT은 편집할 수 없습니다." : canEditProd ? "편집" : PERMISSION_TIP}
@@ -1290,6 +1297,31 @@ export default function ItemProductionClient({
                     (BOM 자재량 × 작업배수 + 조정량 = 실 투입량 · 차감은 이 값으로만 일어남)
                   </span>
                 </div>
+                {editing.id && (editing.status === "진행중" || editing.status === "완료") && (
+                  <label className="px-4 py-2 border-b border-amber-200 bg-amber-50 text-[12px] flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5" checked={applyMaterialEdit}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setApplyMaterialEdit(on);
+                        if (on) {
+                          // 이미 기록된 조정량을 불러와 미리보기를 실제 차감 상태와 맞춘다.
+                          const rows = execMaterials.filter(
+                            (x) => (x.lotId && x.lotId === editing.id) || (x.lotNo && editing.lotCode && x.lotNo === editing.lotCode),
+                          );
+                          const adj: Record<string, number> = {};
+                          for (const x of rows) adj[x.materialCode] = (adj[x.materialCode] ?? 0) + (x.adjustmentQty ?? 0);
+                          setAdjustments(adj);
+                        } else {
+                          setAdjustments({});
+                        }
+                      }} />
+                    <span className="text-ink-700">
+                      <b>실투입량 정정 → 원료재고 반영</b> (이미 진행중/완료된 LOT)<br />
+                      체크하면 아래 <b>실 투입량</b>과 이미 차감된 양의 <b>차이만큼만</b> 원료재고가 추가 차감(또는 복원)됩니다.
+                      체크하지 않으면 메타데이터만 저장되고 <b>재고는 변하지 않습니다.</b>
+                    </span>
+                  </label>
+                )}
                 <table className="w-full text-sm">
                   <thead><tr>
                     <th className="table-th">기준 BOM 자재</th>
