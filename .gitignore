@@ -7,3 +7,6 @@ out
 .bfter-config.json
 
 .vercel
+
+# TypeScript incremental build cache (regenerated on every typecheck/build)
+tsconfig.tsbuildinfo
