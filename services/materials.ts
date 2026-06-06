@@ -6,6 +6,7 @@ import {
   SHEET_TABS,
   strictAppendRow,
   strictUpdateRow,
+  batchUpdateRows,
 } from "@/lib/googleSheets";
 import { getStore } from "./store";
 import { genId } from "@/lib/utils";
@@ -164,15 +165,69 @@ export async function consumeMaterials(
   uses: { materialId: string; amount: number }[],
 ): Promise<{ ok: boolean; missing: string[] }> {
   const missing: string[] = [];
-  const list = await listMaterials();
+  if (uses.length === 0) return { ok: true, missing: [] };
+
+  // ─── Mock store path (no sheets) — unchanged behavior ─────
+  if (!(await useSheets())) {
+    const list = await listMaterials();
+    for (const u of uses) {
+      const m = list.find((x) => x.id === u.materialId);
+      if (!m || m.stock < u.amount) missing.push(u.materialId);
+    }
+    if (missing.length) return { ok: false, missing };
+    for (const u of uses) {
+      const m = list.find((x) => x.id === u.materialId)!;
+      await updateMaterial(m.id, { stock: m.stock - u.amount });
+    }
+    return { ok: true, missing: [] };
+  }
+
+  // ─── Sheets path — single read + single batched write ─────
+  // Previously this looped one updateMaterial per material, and each
+  // updateMaterial re-read the whole sheet (findRow + listMaterials +
+  // strictUpdateRow). For N materials that was ~3N sheet round-trips — the
+  // dominant cause of slow 품목생산 saves. Now: read the sheet once to map
+  // id → { rowNumber, stock }, run the same all-or-nothing stock check, then
+  // write every stock cell in ONE batchUpdateRows call (stock column only).
+  //
+  // Row numbers are derived by position: readRows preserves sheet order with
+  // no filtering, so data row index i is sheet row i + 2. Ids are built with
+  // the SAME synthMaterialId logic listMaterials uses, so the keys here match
+  // the materialIds callers pass (which originate from listMaterials).
+  const raw = await readRows<Record<string, string>>(TAB);
+  const byId = new Map<string, { rowNumber: number; stock: number }>();
+  raw.forEach((r, i) => {
+    const name = (r.materialName ?? r.name ?? "").trim();
+    const id = synthMaterialId(r, name);
+    // First row wins — matches listMaterials / Array.find resolution order.
+    if (id && !byId.has(id)) {
+      byId.set(id, { rowNumber: i + 2, stock: Number(r.stock) || 0 });
+    }
+  });
+
+  // All-or-nothing stock check (unchanged semantics).
   for (const u of uses) {
-    const m = list.find((x) => x.id === u.materialId);
+    const m = byId.get(u.materialId);
     if (!m || m.stock < u.amount) missing.push(u.materialId);
   }
   if (missing.length) return { ok: false, missing };
+
+  // Aggregate per row so repeated uses of the same material accumulate
+  // instead of overwriting each other.
+  const newStockByRow = new Map<number, number>();
   for (const u of uses) {
-    const m = list.find((x) => x.id === u.materialId)!;
-    await updateMaterial(m.id, { stock: m.stock - u.amount });
+    const m = byId.get(u.materialId)!;
+    const prev = newStockByRow.has(m.rowNumber)
+      ? (newStockByRow.get(m.rowNumber) as number)
+      : m.stock;
+    newStockByRow.set(m.rowNumber, prev - u.amount);
   }
+  const updates = Array.from(newStockByRow.entries()).map(
+    ([rowNumber, stock]) => ({
+      rowNumber,
+      values: [stock] as (string | number | boolean)[],
+    }),
+  );
+  await batchUpdateRows(TAB, updates, ["stock"]);
   return { ok: true, missing: [] };
 }

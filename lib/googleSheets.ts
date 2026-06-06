@@ -478,15 +478,38 @@ export async function batchUpdateRows(
   }
   const sheets = await getSheetsClient();
   if (!sheets) throw new Error("Sheets unavailable (mode=" + mode + ")");
+  // Name-safe partial update: read the header row and the affected row block
+  // once, then overwrite ONLY the columns named in `headers`, preserving every
+  // other cell. Mirrors strictUpdateRow's safety but batched. (Previously this
+  // dumped `values` from column A, which silently clobbered earlier columns
+  // when callers passed a partial row — never safe for stock-only writes.)
+  const headerRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: await getSheetId(),
+    range: `${tab}!1:1`,
+  });
+  const existing = (headerRes.data.values?.[0] ?? []).map((v) => String(v));
+  const rowNums = updates.map((u) => u.rowNumber);
+  const minRow = Math.min(...rowNums);
+  const maxRow = Math.max(...rowNums);
+  const blockRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: await getSheetId(),
+    range: `${tab}!A${minRow}:Z${maxRow}`,
+  });
+  const block = blockRes.data.values ?? [];
+  const data = updates.map((u) => {
+    const valuesObj = zip(headers, u.values);
+    const current = (block[u.rowNumber - minRow] ?? []).map((v) =>
+      v == null ? "" : (v as string | number | boolean));
+    while (current.length < existing.length) current.push("");
+    for (const [k, v] of Object.entries(valuesObj)) {
+      const i = existing.indexOf(k);
+      if (i >= 0) current[i] = v as string | number | boolean;
+    }
+    return { range: `${tab}!A${u.rowNumber}`, values: [current] };
+  });
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: await getSheetId(),
-    requestBody: {
-      valueInputOption: "USER_ENTERED",
-      data: updates.map((u) => ({
-        range: `${tab}!A${u.rowNumber}`,
-        values: [u.values],
-      })),
-    },
+    requestBody: { valueInputOption: "USER_ENTERED", data },
   });
 }
 
