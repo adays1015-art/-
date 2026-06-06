@@ -1,0 +1,9 @@
+node_modules
+.next
+out
+.env*
+.DS_Store
+*.log
+.bfter-config.json
+
+.vercel

@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  background: #F7F6F2;
+  color: #1F1D1A;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "tnum" 1, "cv11" 1;
+}
+
+::selection {
+  background: #BFAC7C;
+  color: #1F1D1A;
+}
+
+/* ─── Print / PDF optimization ─────────────────────────────
+   Used by /daily-report (executive view). Sidebar, top bar, buttons
+   and any element with `.no-print` are hidden. A4 portrait with safe
+   page-break behavior inside report sections.
+─────────────────────────────────────────────────────────── */
+@media print {
+  html, body {
+    background: #ffffff !important;
+    color: #1F1D1A !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  aside,
+  header,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+  .daily-report-root {
+    font-size: 11px;
+    color: #1F1D1A;
+  }
+  .daily-report-root .panel,
+  .daily-report-root [class*="rounded"] {
+    box-shadow: none !important;
+  }
+  .daily-report-root .report-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .daily-report-root .report-table thead {
+    display: table-header-group;
+  }
+  .daily-report-root .report-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .daily-report-root .report-table td,
+  .daily-report-root .report-table th {
+    padding: 4px 8px;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 14mm 12mm;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-bg-panel border border-border rounded-xl2 shadow-card;
+  }
+  .panel-pad {
+    @apply p-5;
+  }
+  .table-th {
+    @apply px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-500 bg-bg-subtle border-b border-border;
+  }
+  .table-td {
+    @apply px-3 py-2 text-sm text-ink-800 border-b border-border;
+  }
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium border transition-colors;
+  }
+  .btn-primary {
+    @apply btn bg-ink-900 text-bg border-ink-900 hover:bg-ink-800;
+  }
+  .btn-beige {
+    @apply btn bg-beige-200 text-ink-900 border-beige-300 hover:bg-beige-300;
+  }
+  .btn-ghost {
+    @apply btn bg-bg-panel text-ink-800 border-border hover:bg-bg-subtle;
+  }
+  .input {
+    @apply w-full rounded-md border border-border bg-bg-panel px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-beige-300 focus:border-beige-400;
+  }
+  .label {
+    @apply block text-xs font-medium text-ink-600 mb-1;
+  }
+}
