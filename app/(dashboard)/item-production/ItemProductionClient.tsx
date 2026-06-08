@@ -56,6 +56,8 @@ function emptyLot(): EditableLot {
 }
 
 interface AdjustmentRow {
+  rowKey: string;         // unique per BOM line (l.id) — NOT materialCode, so
+                          // the same material used in 배합 & 사출 stays separate
   materialId: string;     // resolved internal id for deduction
   materialCode: string;
   materialName: string;
@@ -217,12 +219,15 @@ export default function ItemProductionClient({
   const baseRows: AdjustmentRow[] = useMemo(() => {
     if (!draft?.itemNo) return [];
     const lines = bom.filter((b) => b.itemNo === draft.itemNo);
-    return lines.map((l) => {
+    return lines.map((l, idx) => {
       const mat = materials.find(
         (m) => m.id === l.materialId
           || (l.materialCode && (m.materialCode === l.materialCode || m.id === l.materialCode)),
       );
       return {
+        // Per-BOM-line key so duplicate materials (same code in 배합/사출) get
+        // independent adjustment inputs. Fall back to a composite if id is blank.
+        rowKey: l.id || `${l.materialCode || l.materialId}#${idx}`,
         materialId: mat?.id ?? l.materialId,
         materialCode: l.materialCode || l.materialId,
         materialName: l.materialName || mat?.name || "",
@@ -240,7 +245,7 @@ export default function ItemProductionClient({
   const adjustmentRows = useMemo(() => {
     return baseRows.map((r) => ({
       ...r,
-      adjustmentQty: adjustments[r.materialCode] ?? 0,
+      adjustmentQty: adjustments[r.rowKey] ?? 0,
       baseTotalQty: r.bomPerUnit * multiplier,
     }));
   }, [baseRows, adjustments, multiplier]);
@@ -810,7 +815,7 @@ export default function ItemProductionClient({
                   </tr></thead>
                   <tbody>
                     {actualSummary.rows.map((r) => (
-                      <tr key={r.materialCode}>
+                      <tr key={r.rowKey}>
                         <td className="table-td font-mono text-xs text-ink-900">{r.materialCode || <span className="text-red-700">(없음)</span>}</td>
                         <td className="table-td">
                           <div className="font-medium text-ink-900">{r.materialName}</div>
@@ -824,9 +829,9 @@ export default function ItemProductionClient({
                         </td>
                         <td className="table-td text-right">
                           <input className="input text-right tabular-nums w-20" type="number" step="0.01"
-                            value={adjustments[r.materialCode] ?? 0}
+                            value={adjustments[r.rowKey] ?? 0}
                             onChange={(e) => setAdjustments((prev) => ({
-                              ...prev, [r.materialCode]: Number(e.target.value),
+                              ...prev, [r.rowKey]: Number(e.target.value),
                             }))} />
                         </td>
                         <td className={`table-td text-right tabular-nums font-medium ${r.actualQty < 0 ? "text-red-700" : ""}`}>
@@ -1304,12 +1309,24 @@ export default function ItemProductionClient({
                         const on = e.target.checked;
                         setApplyMaterialEdit(on);
                         if (on) {
-                          // 이미 기록된 조정량을 불러와 미리보기를 실제 차감 상태와 맞춘다.
+                          // 이미 차감된 양을 불러와 미리보기를 실제 상태와 맞춘다. 차감은
+                          // 원료코드 합계 기준이라(같은 원료가 여러 줄이어도 재고는 하나),
+                          // 코드별 [기록 합계 − 기준량 합계]를 그 코드의 첫 줄에 싣는다 →
+                          // 합계가 정확해 '체크 후 그대로 저장'은 무변동(no-op)이 됨.
                           const rows = execMaterials.filter(
                             (x) => (x.lotId && x.lotId === editing.id) || (x.lotNo && editing.lotCode && x.lotNo === editing.lotCode),
                           );
+                          const recordedByCode = new Map<string, number>();
+                          for (const x of rows) recordedByCode.set(x.materialCode, (recordedByCode.get(x.materialCode) ?? 0) + (x.actualQty ?? 0));
+                          const baseByCode = new Map<string, number>();
+                          for (const r of baseRows) baseByCode.set(r.materialCode, (baseByCode.get(r.materialCode) ?? 0) + r.bomPerUnit * multiplier);
                           const adj: Record<string, number> = {};
-                          for (const x of rows) adj[x.materialCode] = (adj[x.materialCode] ?? 0) + (x.adjustmentQty ?? 0);
+                          const seenCode = new Set<string>();
+                          for (const r of baseRows) {
+                            if (seenCode.has(r.materialCode) || !recordedByCode.has(r.materialCode)) { adj[r.rowKey] = 0; continue; }
+                            seenCode.add(r.materialCode);
+                            adj[r.rowKey] = Number(((recordedByCode.get(r.materialCode) ?? 0) - (baseByCode.get(r.materialCode) ?? 0)).toFixed(6));
+                          }
                           setAdjustments(adj);
                         } else {
                           setAdjustments({});
@@ -1335,7 +1352,7 @@ export default function ItemProductionClient({
                   </tr></thead>
                   <tbody>
                     {actualSummary.rows.map((r) => (
-                      <tr key={r.materialCode}>
+                      <tr key={r.rowKey}>
                         <td className="table-td">
                           <div className="font-medium text-ink-900">{r.materialName}</div>
                           <div className="text-[10px] text-ink-500">{r.materialCode} {r.category ? `· ${r.category}` : ""}</div>
@@ -1345,9 +1362,9 @@ export default function ItemProductionClient({
                         </td>
                         <td className="table-td text-right">
                           <input className="input text-right tabular-nums w-20" type="number" step="0.01"
-                            value={adjustments[r.materialCode] ?? 0}
+                            value={adjustments[r.rowKey] ?? 0}
                             onChange={(e) => setAdjustments((prev) => ({
-                              ...prev, [r.materialCode]: Number(e.target.value),
+                              ...prev, [r.rowKey]: Number(e.target.value),
                             }))} />
                         </td>
                         <td className={`table-td text-right tabular-nums ${r.actualQty < 0 ? "text-red-700 font-medium" : "font-medium"}`}>

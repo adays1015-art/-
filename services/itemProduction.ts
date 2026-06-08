@@ -312,18 +312,27 @@ async function reconcileMaterials(
     if (!code) continue;
     prevByCode.set(code, (prevByCode.get(code) ?? 0) + (e.actualQty || 0));
   }
-  // Delta per material = new stated total − already deducted.
-  const deltas = newMaterials
-    .map((m) => {
-      const code = String(m.materialCode || "").trim();
-      return {
-        materialCode: code,
-        materialName: m.materialName,
-        actualQty: m.actualQty - (prevByCode.get(code) ?? 0),
-        unit: m.unit,
-      };
-    })
-    .filter((d) => d.materialCode && Math.abs(d.actualQty) > 1e-9);
+  // Aggregate the restated amounts by code first. The same material can sit on
+  // several BOM lines (e.g. 배합 + 사출) but 원료재고 is a single per-material
+  // balance, so reconcile TOTALS — otherwise each line would subtract the full
+  // previous sum and over/under-deduct.
+  const newByCode = new Map<string, { total: number; unit?: string; name?: string }>();
+  for (const m of newMaterials) {
+    const code = String(m.materialCode || "").trim();
+    if (!code) continue;
+    const cur = newByCode.get(code);
+    if (cur) cur.total += m.actualQty;
+    else newByCode.set(code, { total: m.actualQty, unit: m.unit, name: m.materialName });
+  }
+  // Delta per material = restated total − already deducted total.
+  const deltas = Array.from(newByCode.entries())
+    .map(([code, v]) => ({
+      materialCode: code,
+      materialName: v.name,
+      actualQty: v.total - (prevByCode.get(code) ?? 0),
+      unit: v.unit,
+    }))
+    .filter((d) => Math.abs(d.actualQty) > 1e-9);
   if (deltas.length === 0) return "투입량 변경 없음 — 재고 변동 없습니다.";
 
   // Apply ONLY the delta. consumeFromExplicit deducts positive deltas and
