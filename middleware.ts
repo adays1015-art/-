@@ -10,15 +10,23 @@ import { NextResponse, type NextRequest } from "next/server";
 import { APP_AUTH_COOKIE } from "@/lib/appAuth";
 
 const PUBLIC_PATHS = ["/login", "/denied"];
+// Public-facing storefront (the consumer "PRODUCT" 자사몰) and the separated
+// wholesale member area. These are intentionally NOT behind the internal
+// app-auth cookie — the wholesale screen runs its own lightweight member gate
+// on the client (see app/(store)/wholesale). The dashboard ops app stays gated.
+const PUBLIC_PREFIXES = ["/product", "/cart", "/checkout", "/order", "/wholesale"];
 // /api/set-bom is a read-only diagnostic endpoint that returns the
 // 세트BOM sheet contents as JSON. Whitelisted so the user can hit the
 // URL directly in a browser tab to verify the fetch is working.
-const PUBLIC_API_PREFIXES = ["/api/auth/", "/api/ping"];
+const PUBLIC_API_PREFIXES = ["/api/auth/", "/api/ping", "/api/store/"];
 
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (PUBLIC_PATHS.includes(pathname)) return NextResponse.next();
+  if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+    return NextResponse.next();
+  }
   if (PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
   const cookie = req.cookies.get(APP_AUTH_COOKIE)?.value;
