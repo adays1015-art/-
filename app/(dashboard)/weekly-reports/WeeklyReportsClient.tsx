@@ -470,7 +470,7 @@ export default function WeeklyReportsClient({
             </div>
           ) : (
             <div className="panel panel-pad text-center text-sm text-ink-500 no-print">
-              왼쪽 목록에서 주간보고를 선택하면 상세 내용과 인쇄 · Word 내보내기를 사용할 수 있습니다.
+              왼쪽 목록에서 주간보고를 선택하면 상세 내용과 인쇄 · Google Docs 저장을 사용할 수 있습니다.
             </div>
           )}
         </div>
