@@ -60,6 +60,7 @@ export async function POST(req: Request) {
       team: String(d.team ?? session.team).trim(),
       author,
       thisWeek: d.thisWeek ?? "",
+      activities: Array.isArray(d.activities) ? d.activities : [],
       nextWeek: d.nextWeek ?? "",
       issues: d.issues ?? "",
       status: (d.status as ReportStatus) ?? "제출",

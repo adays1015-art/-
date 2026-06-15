@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, FileText, Receipt, Users, LogOut } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, FileText, Receipt, Users } from "lucide-react";
 import type { Session } from "@/lib/types";
 
 type Item = { href: string; label: string; icon: typeof FileText; managerOnly?: boolean };
@@ -16,15 +16,7 @@ const ITEMS: Item[] = [
 
 export default function Sidebar({ session }: { session: Session }) {
   const pathname = usePathname();
-  const router = useRouter();
   const isManager = session.role === "관리자";
-
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  }
-
   const items = ITEMS.filter((i) => !i.managerOnly || isManager);
 
   return (
@@ -47,17 +39,6 @@ export default function Sidebar({ session }: { session: Session }) {
           );
         })}
       </nav>
-
-      <div className="px-4 py-4 border-t border-border">
-        <div className="text-xs text-ink-600 mb-2 truncate">
-          {session.team ? `${session.team} · ` : ""}{session.name}
-          <span className="ml-1 text-ink-400">({session.role})</span>
-        </div>
-        <button onClick={logout}
-          className="w-full inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-ink-700 hover:bg-bg-subtle">
-          <LogOut size={14} /> 로그아웃
-        </button>
-      </div>
     </aside>
   );
 }

@@ -4,18 +4,23 @@
 
 import { promises as fs } from "fs";
 import path from "path";
-import type { WeeklyReport, ReportInput, Member, Schedule, ScheduleInput, ScheduleCategory } from "./types";
+import type {
+  WeeklyReport, ReportInput, Member, Schedule, ScheduleInput, ScheduleCategory,
+  ExpenseRequest, ExpenseInput, ExpenseStatus,
+} from "./types";
 import { genId } from "./week";
 import * as sheets from "./sheets";
 
 const TAB_REPORTS = "주간보고";
 const TAB_MEMBERS = "팀원";
 const TAB_SCHEDULES = "일정";
+const TAB_EXPENSES = "지출결의서";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const REPORTS_FILE = path.join(DATA_DIR, "reports.json");
 const MEMBERS_FILE = path.join(DATA_DIR, "members.json");
 const SCHEDULES_FILE = path.join(DATA_DIR, "schedules.json");
+const EXPENSES_FILE = path.join(DATA_DIR, "expenses.json");
 
 // ─── file helpers ───────────────────────────────────────────
 async function readFileJson<T>(file: string): Promise<T[]> {
@@ -41,8 +46,14 @@ async function writeFileJson<T>(file: string, rows: T[]): Promise<void> {
 // ─── report row mapping (Sheets) ────────────────────────────
 const REPORT_HEADER = [
   "id", "weekStart", "weekEnd", "team", "author",
-  "thisWeek", "nextWeek", "issues", "status", "managerNote", "createdAt", "updatedAt",
+  "thisWeek", "activities", "nextWeek", "issues", "status", "managerNote", "createdAt", "updatedAt",
 ];
+function parseActivities(raw: unknown): WeeklyReport["activities"] {
+  if (Array.isArray(raw)) return raw as WeeklyReport["activities"];
+  const s = String(raw ?? "").trim();
+  if (!s) return [];
+  try { const a = JSON.parse(s); return Array.isArray(a) ? a : []; } catch { return []; }
+}
 function reportFromRow(r: Record<string, string>): WeeklyReport {
   return {
     id: r.id ?? "",
@@ -51,6 +62,7 @@ function reportFromRow(r: Record<string, string>): WeeklyReport {
     team: r.team ?? "",
     author: r.author ?? "",
     thisWeek: r.thisWeek ?? "",
+    activities: parseActivities(r.activities),
     nextWeek: r.nextWeek ?? "",
     issues: r.issues ?? "",
     status: (r.status as WeeklyReport["status"]) || "작성중",
@@ -62,6 +74,7 @@ function reportFromRow(r: Record<string, string>): WeeklyReport {
 function reportToValues(w: WeeklyReport): Record<string, unknown> {
   const o: Record<string, unknown> = {};
   for (const k of REPORT_HEADER) o[k] = (w as unknown as Record<string, unknown>)[k] ?? "";
+  o.activities = JSON.stringify(w.activities ?? []);
   return o;
 }
 
@@ -225,4 +238,70 @@ export async function listMembers(): Promise<Member[]> {
     : await readFileJson<Member>(MEMBERS_FILE);
   return rows.filter((m) => m.name).sort((a, b) =>
     (a.team || "").localeCompare(b.team || "") || (a.name || "").localeCompare(b.name || ""));
+}
+
+// ─── expenses (지출결의서; 구매/자재 요청) ───────────────────
+const EXPENSE_HEADER = [
+  "id", "date", "team", "requester", "item", "qty", "amount", "vendor",
+  "reason", "status", "managerNote", "createdAt", "updatedAt",
+];
+function expenseFromRow(r: Record<string, string>): ExpenseRequest {
+  return {
+    id: r.id ?? "",
+    date: r.date ?? "",
+    team: r.team ?? "",
+    requester: r.requester ?? "",
+    item: r.item ?? "",
+    qty: r.qty ?? "",
+    amount: Number(r.amount) || 0,
+    vendor: r.vendor ?? "",
+    reason: r.reason ?? "",
+    status: (r.status as ExpenseStatus) || "요청",
+    managerNote: r.managerNote ?? "",
+    createdAt: r.createdAt ?? "",
+    updatedAt: r.updatedAt ?? "",
+  };
+}
+function expenseToValues(e: ExpenseRequest): Record<string, unknown> {
+  const o: Record<string, unknown> = {};
+  for (const k of EXPENSE_HEADER) o[k] = (e as unknown as Record<string, unknown>)[k] ?? "";
+  return o;
+}
+
+export async function listExpenses(): Promise<ExpenseRequest[]> {
+  const rows = sheets.useSheets()
+    ? (await sheets.getSheet(TAB_EXPENSES)).map(expenseFromRow)
+    : await readFileJson<ExpenseRequest>(EXPENSES_FILE);
+  return rows.sort((a, b) =>
+    (b.date || "").localeCompare(a.date || "") || (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+}
+
+export async function createExpense(input: ExpenseInput): Promise<ExpenseRequest> {
+  const now = new Date().toISOString();
+  const e: ExpenseRequest = { id: genId(), ...input, managerNote: "", createdAt: now, updatedAt: now };
+  if (sheets.useSheets()) await sheets.appendRow(TAB_EXPENSES, expenseToValues(e));
+  else {
+    const rows = await readFileJson<ExpenseRequest>(EXPENSES_FILE);
+    rows.push(e);
+    await writeFileJson(EXPENSES_FILE, rows);
+  }
+  return e;
+}
+
+export async function updateExpense(id: string, patch: Partial<Omit<ExpenseRequest, "id" | "createdAt">>): Promise<ExpenseRequest | null> {
+  if (sheets.useSheets()) {
+    const rowNum = await sheets.findRowNumber(TAB_EXPENSES, "id", id);
+    if (!rowNum) return null;
+    const existing = (await listExpenses()).find((e) => e.id === id);
+    if (!existing) return null;
+    const merged: ExpenseRequest = { ...existing, ...patch, id, createdAt: existing.createdAt, updatedAt: new Date().toISOString() };
+    await sheets.updateRow(TAB_EXPENSES, rowNum, expenseToValues(merged));
+    return merged;
+  }
+  const rows = await readFileJson<ExpenseRequest>(EXPENSES_FILE);
+  const idx = rows.findIndex((e) => e.id === id);
+  if (idx === -1) return null;
+  rows[idx] = { ...rows[idx], ...patch, id, createdAt: rows[idx].createdAt, updatedAt: new Date().toISOString() };
+  await writeFileJson(EXPENSES_FILE, rows);
+  return rows[idx];
 }
