@@ -29,7 +29,7 @@ export default function AppNav({ session }: { session: Session }) {
 
   return (
     <div className="flex items-center gap-2">
-      {isManager && link("/", "달력", CalendarDays)}
+      {link("/", "달력", CalendarDays)}
       {isManager && link("/status", "제출현황", Users)}
       {link("/reports", "주간보고", FileText)}
       <div className="ml-2 flex items-center gap-2 text-xs text-ink-500">

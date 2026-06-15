@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const session = verifySession(cookies().get(AUTH_COOKIE)?.value);
   if (!session) redirect("/login");
-  if (session.role !== "관리자") redirect("/reports");
+  // 달력 대시보드는 관리자·팀원 모두에게 공개.
 
   const schedules = await listSchedules().catch(() => []);
   return <CalendarDashboard initialSchedules={schedules} />;
