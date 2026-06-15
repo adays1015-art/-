@@ -6,13 +6,25 @@
 export type ReportStatus = "작성중" | "제출" | "확인됨";
 export const REPORT_STATUSES: ReportStatus[] = ["작성중", "제출", "확인됨"];
 
+// 주간보고 활동 항목 키워드
+export const REPORT_KEYWORDS = ["업무", "출장", "외근", "중요", "기타"] as const;
+export type ReportKeyword = (typeof REPORT_KEYWORDS)[number];
+
+// 한 줄 활동: 날짜 + 키워드 + 내용
+export interface ReportActivity {
+  date: string;                 // YYYY-MM-DD
+  keyword: ReportKeyword | "";
+  content: string;
+}
+
 export interface WeeklyReport {
   id: string;
   weekStart: string;   // 주 시작일(월요일) YYYY-MM-DD — 보고 대상 주
   weekEnd: string;     // 주 종료일(일요일)
   team: string;        // 팀
   author: string;      // 작성자(팀원)
-  thisWeek: string;    // 이번 주 한 일 / 활동
+  thisWeek: string;    // (구버전 호환) 자유 텍스트 — 신규는 activities 사용
+  activities: ReportActivity[]; // 날짜+키워드+내용 항목 목록
   nextWeek: string;    // 다음 주 계획
   issues: string;      // 이슈 / 특이사항 (있으면 대시보드 '확인 필요'에 강조)
   status: ReportStatus;
@@ -23,7 +35,32 @@ export interface WeeklyReport {
 
 export type ReportInput = Pick<
   WeeklyReport,
-  "weekStart" | "weekEnd" | "team" | "author" | "thisWeek" | "nextWeek" | "issues" | "status"
+  "weekStart" | "weekEnd" | "team" | "author" | "thisWeek" | "activities" | "nextWeek" | "issues" | "status"
+>;
+
+// ─── 지출결의서 (구매/자재 요청) ─────────────────────────────
+export type ExpenseStatus = "요청" | "승인" | "반려" | "완료";
+export const EXPENSE_STATUSES: ExpenseStatus[] = ["요청", "승인", "반려", "완료"];
+
+export interface ExpenseRequest {
+  id: string;
+  date: string;        // 신청일 YYYY-MM-DD
+  team: string;
+  requester: string;   // 신청자
+  item: string;        // 품목/자재명
+  qty: string;         // 수량(단위 포함 자유 입력)
+  amount: number;      // 예상 금액
+  vendor: string;      // 구매처(선택)
+  reason: string;      // 사유/용도
+  status: ExpenseStatus;
+  managerNote: string; // 결재 의견
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ExpenseInput = Pick<
+  ExpenseRequest,
+  "date" | "team" | "requester" | "item" | "qty" | "amount" | "vendor" | "reason" | "status"
 >;
 
 // 팀원 명단 — '미제출자' 집계와 로그인 이름 선택에 사용 (없어도 동작).

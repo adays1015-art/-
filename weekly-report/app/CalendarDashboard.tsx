@@ -128,17 +128,14 @@ export default function CalendarDashboard({
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-ink-900 tracking-tight">대시보드</h1>
-          <div className="flex items-center gap-1">
-            <button className="btn-ghost px-2" onClick={() => gotoMonth(-1)}><ChevronLeft size={15} /></button>
-            <span className="text-sm font-medium text-ink-700 min-w-[88px] text-center">{formatMonthLabel(viewYear, viewMonth)}</span>
-            <button className="btn-ghost px-2" onClick={() => gotoMonth(1)}><ChevronRight size={15} /></button>
-            <button className="btn-ghost" onClick={() => { setViewYear(now.getUTCFullYear()); setViewMonth(now.getUTCMonth()); }}>오늘</button>
-          </div>
+      <div className="flex items-center gap-3 mb-5">
+        <h1 className="text-2xl font-semibold text-ink-900 tracking-tight">대시보드</h1>
+        <div className="flex items-center gap-1">
+          <button className="btn-ghost px-2" onClick={() => gotoMonth(-1)}><ChevronLeft size={15} /></button>
+          <span className="text-sm font-medium text-ink-700 min-w-[88px] text-center">{formatMonthLabel(viewYear, viewMonth)}</span>
+          <button className="btn-ghost px-2" onClick={() => gotoMonth(1)}><ChevronRight size={15} /></button>
+          <button className="btn-ghost" onClick={() => { setViewYear(now.getUTCFullYear()); setViewMonth(now.getUTCMonth()); }}>오늘</button>
         </div>
-        <button className="btn-primary" onClick={() => openAdd()}><Plus size={14} /> 일정 등록</button>
       </div>
 
       {error && (
@@ -213,6 +210,10 @@ export default function CalendarDashboard({
       </div>
 
       {/* 달력 */}
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-semibold text-ink-700">월간 일정</h2>
+        <button className="btn-primary" onClick={() => openAdd()}><Plus size={14} /> 일정 등록</button>
+      </div>
       <div className="panel overflow-hidden">
         <div className="grid grid-cols-7 border-b border-border">
           {WEEK_HEADERS.map((w, i) => (

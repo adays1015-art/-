@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE, verifySession } from "@/lib/auth";
 import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,7 +18,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {session ? (
           <div className="flex min-h-screen">
             <Sidebar session={session} />
-            <main className="flex-1 min-w-0 px-6 py-8 lg:px-10">{children}</main>
+            <div className="flex-1 min-w-0 flex flex-col">
+              <TopBar session={session} />
+              <main className="flex-1 px-6 py-8 lg:px-10">{children}</main>
+            </div>
           </div>
         ) : (
           <main className="min-h-screen">{children}</main>
