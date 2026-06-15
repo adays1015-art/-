@@ -34,7 +34,7 @@ export interface Member {
 }
 
 // ─── Schedule (일정) — 달력 대시보드 항목 ────────────────────
-export const SCHEDULE_CATEGORIES = ["회의", "납품", "출장", "점검", "마감", "기타"] as const;
+export const SCHEDULE_CATEGORIES = ["생산", "회의", "납품", "출장", "휴가", "점검", "마감", "기타"] as const;
 export type ScheduleCategory = (typeof SCHEDULE_CATEGORIES)[number];
 
 export interface Schedule {
