@@ -267,6 +267,37 @@ export interface Client {
   commissionRate: number;
 }
 
+// ─── WeeklyReport (주간작업보고) ─────────────────────────────
+// 개인별 주간 업무를 직접 작성·보관하는 독립 기능. 생산 데이터와 연동되지
+// 않으며, 작성자가 한 주(월~일) 단위로 수행 업무 · 다음 주 계획 · 특이사항을
+// 직접 기록합니다.
+//
+// 시트 헤더 (Google Sheets "주간작업보고" 탭):
+//   id / weekStart / weekEnd / author / department /
+//   thisWeek / nextWeek / issues / note / status / createdAt / updatedAt
+//
+// status:
+//   "작성중" → 임시 저장 (수정 가능)
+//   "제출"   → 제출 완료
+//   "삭제됨" → 목록에서 숨김 (소프트 삭제)
+export type WeeklyReportStatus = "작성중" | "제출" | "삭제됨";
+export const WEEKLY_REPORT_STATUSES: WeeklyReportStatus[] = ["작성중", "제출"];
+
+export interface WeeklyReport {
+  id: string;
+  weekStart: string;   // 주 시작일 (월요일) YYYY-MM-DD
+  weekEnd: string;     // 주 종료일 (일요일) YYYY-MM-DD
+  author: string;      // 작성자
+  department: string;  // 부서 / 팀
+  thisWeek: string;    // 이번 주 수행 업무
+  nextWeek: string;    // 다음 주 계획
+  issues: string;      // 특이사항 / 이슈
+  note: string;        // 기타 비고
+  status: WeeklyReportStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SetBomLine {
   id: string;
   setCode: string;            // 세트코드 — picker matching key

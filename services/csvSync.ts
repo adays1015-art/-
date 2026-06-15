@@ -668,6 +668,39 @@ const setBomDef: TabDef<import("@/types").SetBomLine> = {
   },
 };
 
+const weeklyReportsDef: TabDef<import("@/types").WeeklyReport> = {
+  key: "weeklyReports",
+  tabName: SHEET_TABS.weeklyReports,
+  headers: [
+    "id", "weekStart", "weekEnd", "author", "department",
+    "thisWeek", "nextWeek", "issues", "note", "status", "createdAt", "updatedAt",
+  ],
+  toRow: (w) => [
+    w.id, w.weekStart, w.weekEnd, w.author, w.department,
+    w.thisWeek, w.nextWeek, w.issues, w.note, w.status, w.createdAt, w.updatedAt,
+  ],
+  fromRow: (r) => ({
+    id: r.id ?? "",
+    weekStart: r.weekStart ?? "",
+    weekEnd: r.weekEnd ?? "",
+    author: r.author ?? "",
+    department: r.department ?? "",
+    thisWeek: r.thisWeek ?? "",
+    nextWeek: r.nextWeek ?? "",
+    issues: r.issues ?? "",
+    note: r.note ?? "",
+    status: ((r.status as import("@/types").WeeklyReportStatus) ?? "작성중"),
+    createdAt: r.createdAt ?? "",
+    updatedAt: r.updatedAt ?? "",
+  }),
+  read: () => (getStore().weeklyReports ?? []),
+  replace: (rows) => {
+    const s = getStore();
+    if (!s.weeklyReports) s.weeklyReports = [];
+    s.weeklyReports.splice(0, s.weeklyReports.length, ...rows);
+  },
+};
+
 // ─── Registry ──────────────────────────────────────────────
 export const TAB_DEFS: Record<SheetTabKey, TabDef<unknown>> = {
   materials: materialsDef as TabDef<unknown>,
@@ -692,6 +725,7 @@ export const TAB_DEFS: Record<SheetTabKey, TabDef<unknown>> = {
   equipment: equipmentDef as TabDef<unknown>,
   setBom: setBomDef as TabDef<unknown>,
   clients: clientsDef as TabDef<unknown>,
+  weeklyReports: weeklyReportsDef as TabDef<unknown>,
 };
 
 export function defByKey(key: string): TabDef<unknown> | null {

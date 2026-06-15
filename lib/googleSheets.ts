@@ -60,6 +60,7 @@ export const SHEET_TABS = {
   fragranceExecution: "향생산투입원료",
   equipment: "설비마스터",
   clients: "거래처마스터",
+  weeklyReports: "주간작업보고",
 } as const;
 
 export type SheetTabKey = keyof typeof SHEET_TABS;
