@@ -44,7 +44,7 @@ export default function LoginClient({ members }: { members: { team: string; name
     <div className="min-h-[70vh] flex items-center justify-center">
       <form onSubmit={submit} className="panel panel-pad w-full max-w-sm">
         <div className="text-[11px] font-medium tracking-[0.22em] text-ink-500 uppercase">B.fter · Another Day</div>
-        <h1 className="text-xl font-semibold text-ink-900 mt-1 mb-1">주간 작업보고</h1>
+        <h1 className="text-xl font-semibold text-ink-900 mt-1 mb-1">주간업무관리</h1>
         <p className="text-sm text-ink-600 mb-5">팀 주간 업무 보고 · 관리 시스템</p>
 
         <div className="grid grid-cols-2 gap-2 mb-4">
