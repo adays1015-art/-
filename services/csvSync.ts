@@ -673,11 +673,13 @@ const weeklyReportsDef: TabDef<import("@/types").WeeklyReport> = {
   tabName: SHEET_TABS.weeklyReports,
   headers: [
     "id", "weekStart", "weekEnd", "author", "department",
-    "thisWeek", "nextWeek", "issues", "note", "status", "createdAt", "updatedAt",
+    "thisWeek", "nextWeek", "issues", "note", "status",
+    "docId", "docUrl", "createdAt", "updatedAt",
   ],
   toRow: (w) => [
     w.id, w.weekStart, w.weekEnd, w.author, w.department,
-    w.thisWeek, w.nextWeek, w.issues, w.note, w.status, w.createdAt, w.updatedAt,
+    w.thisWeek, w.nextWeek, w.issues, w.note, w.status,
+    w.docId, w.docUrl, w.createdAt, w.updatedAt,
   ],
   fromRow: (r) => ({
     id: r.id ?? "",
@@ -690,6 +692,8 @@ const weeklyReportsDef: TabDef<import("@/types").WeeklyReport> = {
     issues: r.issues ?? "",
     note: r.note ?? "",
     status: ((r.status as import("@/types").WeeklyReportStatus) ?? "작성중"),
+    docId: r.docId ?? "",
+    docUrl: r.docUrl ?? "",
     createdAt: r.createdAt ?? "",
     updatedAt: r.updatedAt ?? "",
   }),

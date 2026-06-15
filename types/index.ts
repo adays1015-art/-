@@ -274,7 +274,8 @@ export interface Client {
 //
 // 시트 헤더 (Google Sheets "주간작업보고" 탭):
 //   id / weekStart / weekEnd / author / department /
-//   thisWeek / nextWeek / issues / note / status / createdAt / updatedAt
+//   thisWeek / nextWeek / issues / note / status / docId / docUrl /
+//   createdAt / updatedAt
 //
 // status:
 //   "작성중" → 임시 저장 (수정 가능)
@@ -294,6 +295,10 @@ export interface WeeklyReport {
   issues: string;      // 특이사항 / 이슈
   note: string;        // 기타 비고
   status: WeeklyReportStatus;
+  // Google Docs 보관용 — 저장 시 Apps Script가 생성한 문서의 ID/URL.
+  // 비어 있으면 아직 Docs로 내보내지 않은 상태.
+  docId: string;
+  docUrl: string;
   createdAt: string;
   updatedAt: string;
 }

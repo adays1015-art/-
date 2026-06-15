@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   listWeeklyReports, createWeeklyReport,
-  updateWeeklyReport, deleteWeeklyReport,
+  updateWeeklyReport, deleteWeeklyReport, exportWeeklyReportToDocs,
 } from "@/services/weeklyReports";
 import type { WeeklyReport, WeeklyReportStatus } from "@/types";
 
@@ -15,7 +15,8 @@ export async function GET() {
 type CreatePayload = { action?: "create"; data: Partial<WeeklyReport> };
 type UpdatePayload = { action: "update"; id: string; patch: Partial<WeeklyReport> };
 type DeletePayload = { action: "delete"; id: string };
-type PostPayload = CreatePayload | UpdatePayload | DeletePayload;
+type SaveDocPayload = { action: "saveDoc"; id: string };
+type PostPayload = CreatePayload | UpdatePayload | DeletePayload | SaveDocPayload;
 
 export async function POST(req: Request) {
   let body: PostPayload | { action?: string; [k: string]: unknown };
@@ -37,6 +38,12 @@ export async function POST(req: Request) {
       const deleted = await deleteWeeklyReport(id);
       if (!deleted) return NextResponse.json({ error: "row not found" }, { status: 404 });
       return NextResponse.json({ data: deleted });
+    }
+    if (action === "saveDoc") {
+      const { id } = body as SaveDocPayload;
+      if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+      const saved = await exportWeeklyReportToDocs(id);
+      return NextResponse.json({ data: saved });
     }
     // Default = create. Accept either { data: {...} } or top-level fields.
     const dataIn = "data" in (body as object)

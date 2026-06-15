@@ -167,7 +167,7 @@ export const SHEET_DEFS: SheetDef[] = [
   },
   {
     sheetName: "주간작업보고",
-    description: "개인별 주간 작업보고서 (이번 주 업무 · 다음 주 계획 · 특이사항)",
-    headers: ["id", "weekStart", "weekEnd", "author", "department", "thisWeek", "nextWeek", "issues", "note", "status", "createdAt", "updatedAt"],
+    description: "개인별 주간 작업보고서 (이번 주 업무 · 다음 주 계획 · 특이사항). docUrl = Google Docs 보관 문서 링크",
+    headers: ["id", "weekStart", "weekEnd", "author", "department", "thisWeek", "nextWeek", "issues", "note", "status", "docId", "docUrl", "createdAt", "updatedAt"],
   },
 ];

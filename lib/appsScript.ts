@@ -35,6 +35,8 @@ export interface AppsScriptOk {
   rows?: Record<string, unknown>[];
   message?: string;
   rowNumber?: number | null;
+  docId?: string;
+  docUrl?: string;
 }
 export interface AppsScriptErr {
   ok: false;
@@ -351,4 +353,38 @@ export async function appsScriptInitializeSheets(
   // We pass back the results array as-is.
   const results = (r as unknown as { results?: InitSheetResult[] }).results;
   return Array.isArray(results) ? results : [];
+}
+
+/**
+ * 주간작업보고서를 Google Docs 문서로 생성하거나 갱신합니다.
+ * Apps Script가 사용자 계정으로 실행되므로 DocumentApp/DriveApp 권한으로
+ * Drive에 문서를 만들고 그 URL을 돌려줍니다.
+ *
+ * - docId 가 주어지고 해당 문서가 존재하면: 본문을 비우고 다시 씀(갱신).
+ * - 없으면: 새 문서를 생성(folderName 지정 시 해당 폴더로 이동).
+ *
+ * 반환: { docId, docUrl }
+ */
+export async function appsScriptCreateWeeklyReportDoc(
+  url: string,
+  payload: {
+    docId?: string;
+    folderName?: string;
+    title: string;
+    fields: Array<{ label: string; value: string }>;
+    footer?: string;
+  },
+): Promise<{ docId: string; docUrl: string }> {
+  const u = ensureUrl(url);
+  const r = await call({
+    url: `${u}?action=createWeeklyReportDoc`,
+    action: "createWeeklyReportDoc",
+    method: "POST",
+    body: payload,
+    timeoutMs: 60_000,
+  });
+  return {
+    docId: String(r.docId ?? ""),
+    docUrl: String(r.docUrl ?? ""),
+  };
 }

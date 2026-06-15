@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Save, X, Search, Printer, Download, FileText,
-  Trash2, ChevronLeft, ChevronRight, CalendarDays, Pencil,
+  Trash2, ChevronLeft, ChevronRight, CalendarDays, Pencil, ExternalLink,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Table, THead, TBody, TR, TH, TD, Empty } from "@/components/Table";
@@ -54,12 +54,6 @@ function escapeCsv(v: string | number | null | undefined): string {
   }
   return s;
 }
-function escapeHtml(v: string | null | undefined): string {
-  return String(v ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/\n/g, "<br/>");
-}
-
 type Draft = {
   weekStart: string;
   author: string;
@@ -207,29 +201,24 @@ export default function WeeklyReportsClient({
     triggerDownload(blob, `weekly-reports-${todayISO()}.csv`);
   }
 
-  function exportWord(r: WeeklyReport) {
-    const rows = [
-      ["대상 주간", weekLabel(r.weekStart)],
-      ["작성자", r.author],
-      ["부서 / 팀", r.department],
-      ["상태", r.status],
-      ["이번 주 수행 업무", escapeHtml(r.thisWeek)],
-      ["다음 주 계획", escapeHtml(r.nextWeek)],
-      ["특이사항 / 이슈", escapeHtml(r.issues)],
-      ["기타 비고", escapeHtml(r.note)],
-    ];
-    const body = rows.map(([k, v]) =>
-      `<tr><th style="background:#f2efe6;text-align:left;width:150px;vertical-align:top;padding:8px;border:1px solid #ccc;">${k}</th>` +
-      `<td style="padding:8px;border:1px solid #ccc;vertical-align:top;">${v || "—"}</td></tr>`).join("");
-    const html =
-      `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">` +
-      `<head><meta charset="utf-8"><title>주간 작업보고서</title></head><body>` +
-      `<h2 style="font-family:'Malgun Gothic',sans-serif;">주간 작업보고서</h2>` +
-      `<table style="border-collapse:collapse;width:100%;font-family:'Malgun Gothic',sans-serif;font-size:13px;">${body}</table>` +
-      `<p style="font-family:'Malgun Gothic',sans-serif;font-size:11px;color:#888;margin-top:16px;">작성일시: ${formatDateKst(r.createdAt)} · 수정일시: ${formatDateKst(r.updatedAt)}</p>` +
-      `</body></html>`;
-    const blob = new Blob(["﻿" + html], { type: "application/msword;charset=utf-8" });
-    triggerDownload(blob, `주간보고_${r.author || "보고서"}_${r.weekStart}.doc`);
+  // ─── Google Docs 저장(보관) ─────────────────────────────
+  // 시트의 데이터는 그대로 두고, Apps Script로 Google Docs 문서를 생성/갱신한
+  // 뒤 돌아온 docUrl 을 보고서에 반영하고 새 탭으로 엽니다.
+  const [savingDocId, setSavingDocId] = useState<string>("");
+  async function saveToDocs(r: WeeklyReport) {
+    setSavingDocId(r.id);
+    try {
+      const res = await save<WeeklyReport>("POST", { action: "saveDoc", id: r.id });
+      if (!res.ok) return;
+      if (res.data) {
+        const u = res.data;
+        setReports((arr) => arr.map((x) => (x.id === r.id ? u : x)));
+        if (u.docUrl) window.open(u.docUrl, "_blank", "noopener");
+      }
+      router.refresh();
+    } finally {
+      setSavingDocId("");
+    }
   }
 
   function triggerDownload(blob: Blob, filename: string) {
@@ -247,7 +236,7 @@ export default function WeeklyReportsClient({
     <div className="daily-report-root">
       <PageHeader
         title="주간 작업보고서"
-        description="개인별 주간 업무를 직접 작성해 보관합니다. 작성한 보고서는 Google Sheets(주간작업보고)에 저장되며 인쇄 · Word · CSV로 내보낼 수 있습니다."
+        description="개인별 주간 업무를 직접 작성합니다. 목록·수정은 웹에서 하고, '저장'은 Google Docs 문서로 보관됩니다. (인쇄 · CSV도 지원)"
         actions={
           <div className="flex items-center gap-2 no-print">
             <button className="btn-ghost" onClick={exportCsv} title="목록 전체 CSV 내보내기">
@@ -400,9 +389,19 @@ export default function WeeklyReportsClient({
                     <TD>{r.author || "—"}</TD>
                     <TD>{r.department || "—"}</TD>
                     <TD>
-                      <span className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${statusBadge(r.status)}`}>
-                        {r.status}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${statusBadge(r.status)}`}>
+                          {r.status}
+                        </span>
+                        {r.docUrl && (
+                          <a href={r.docUrl} target="_blank" rel="noopener noreferrer"
+                            title="Google Docs 보관 문서"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-ink-400 hover:text-ink-700">
+                            <FileText size={13} />
+                          </a>
+                        )}
+                      </div>
                     </TD>
                     <TD className="text-right">
                       <div className="inline-flex items-center gap-1">
@@ -439,8 +438,15 @@ export default function WeeklyReportsClient({
                   <button className="btn-ghost" onClick={() => openEdit(selected)}>
                     <Pencil size={14} /> 수정
                   </button>
-                  <button className="btn-ghost" onClick={() => exportWord(selected)} title="Word 문서로 저장">
-                    <FileText size={14} /> Word
+                  {selected.docUrl && (
+                    <a className="btn-ghost" href={selected.docUrl} target="_blank" rel="noopener noreferrer" title="저장된 Google Docs 문서 열기">
+                      <ExternalLink size={14} /> 독스 열기
+                    </a>
+                  )}
+                  <button className="btn-ghost" onClick={() => saveToDocs(selected)}
+                    disabled={savingDocId === selected.id}
+                    title="Google Docs 문서로 저장 / 갱신">
+                    <FileText size={14} /> {savingDocId === selected.id ? "저장 중…" : (selected.docUrl ? "Docs 갱신" : "Google Docs 저장")}
                   </button>
                   <button className="btn-primary" onClick={() => window.print()} title="인쇄 / PDF 저장">
                     <Printer size={14} /> 인쇄

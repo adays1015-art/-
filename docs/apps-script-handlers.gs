@@ -70,6 +70,7 @@ function _dispatch(e) {
       case "strictUpdateRow":  return _json(_strictUpdateRow(body.sheetName, body.expectedHeaders, body.rowNumber, body.values));
       case "strictBatchAppendRows": return _json(_strictBatchAppendRows(body.sheetName, body.expectedHeaders, body.rows));
       case "initializeSheets": return _json(_initializeSheets(body.specs));
+      case "createWeeklyReportDoc": return _json(_createWeeklyReportDoc(body));
       default:                 return _json({ ok: false, error: "Unknown action: " + action });
     }
   } catch (err) {
@@ -530,4 +531,87 @@ function _initializeSheets(specs) {
     }
   }
   return { ok: true, results: results };
+}
+
+// ─── Weekly report → Google Docs ───────────────────────────
+// 주간작업보고서를 Google Docs 문서로 생성/갱신한다. 앱은 다음 형태로 호출:
+//   POST ?action=createWeeklyReportDoc
+//   body: {
+//     docId?: string,          // 있으면 해당 문서를 비우고 다시 씀(갱신)
+//     folderName?: string,     // 있으면 Drive 루트에 폴더를 만들고 그 안에 보관
+//     title: string,           // 문서 제목 (1행 Heading)
+//     fields: [{ label, value }, ...],  // 본문 — 라벨 + 내용
+//     footer?: string          // 하단 작은 회색 글씨
+//   }
+// 반환: { ok: true, docId, docUrl }
+//
+// Apps Script가 시트 소유자 계정으로 실행되므로 DocumentApp/DriveApp 권한으로
+// 문서를 생성한다. (최초 실행 시 Drive/Docs 권한 승인 필요)
+function _createWeeklyReportDoc(body) {
+  body = body || {};
+  var title = String(body.title || "주간 작업보고서");
+  var fields = body.fields || [];
+  var footer = body.footer ? String(body.footer) : "";
+  var doc, file;
+
+  // 1) 기존 문서 갱신 시도
+  if (body.docId) {
+    try {
+      doc = DocumentApp.openById(body.docId);
+    } catch (e) {
+      doc = null; // 삭제됐거나 접근 불가 → 새로 생성
+    }
+  }
+
+  // 2) 없으면 새 문서 생성 (+ 폴더 정리)
+  if (!doc) {
+    doc = DocumentApp.create(title);
+    file = DriveApp.getFileById(doc.getId());
+    if (body.folderName) {
+      var folder = _ensureFolder(String(body.folderName));
+      if (folder) {
+        folder.addFile(file);
+        try { DriveApp.getRootFolder().removeFile(file); } catch (e) {}
+      }
+    }
+  }
+
+  // 3) 본문 재작성
+  var b = doc.getBody();
+  b.clear();
+
+  var h = b.appendParagraph(title);
+  h.setHeading(DocumentApp.ParagraphHeading.HEADING1);
+
+  // 라벨/내용 표 (2열)
+  var rows = [];
+  for (var i = 0; i < fields.length; i++) {
+    var f = fields[i] || {};
+    rows.push([String(f.label || ""), String(f.value == null ? "" : f.value)]);
+  }
+  if (rows.length) {
+    var table = b.appendTable(rows);
+    // 1열(라벨) 강조
+    for (var r = 0; r < table.getNumRows(); r++) {
+      var cell = table.getRow(r).getCell(0);
+      cell.setBackgroundColor("#f2efe6");
+      cell.editAsText().setBold(true);
+    }
+  }
+
+  if (footer) {
+    var fp = b.appendParagraph(footer);
+    fp.editAsText().setForegroundColor("#888888").setFontSize(9);
+  }
+
+  doc.saveAndClose();
+  return { ok: true, docId: doc.getId(), docUrl: doc.getUrl() };
+}
+
+// 루트에서 이름이 일치하는 폴더를 찾고 없으면 생성한다.
+function _ensureFolder(name) {
+  if (!name) return null;
+  var it = DriveApp.getFoldersByName(name);
+  if (it.hasNext()) return it.next();
+  return DriveApp.createFolder(name);
 }

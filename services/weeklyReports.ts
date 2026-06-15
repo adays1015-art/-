@@ -1,12 +1,15 @@
 import type { WeeklyReport, WeeklyReportStatus } from "@/types";
 import {
   findRowNumberByColumn,
+  getSheetsMode,
   readRowsOrEmpty,
   SHEET_TABS,
   strictAppendRow,
   strictUpdateRow,
   useSheets,
 } from "@/lib/googleSheets";
+import { getEffectiveAppsScriptUrl } from "@/lib/runtimeConfig";
+import { appsScriptCreateWeeklyReportDoc } from "@/lib/appsScript";
 import { getStore } from "./store";
 import { genId } from "@/lib/utils";
 
@@ -15,7 +18,8 @@ const TAB = SHEET_TABS.weeklyReports;
 // 시트 헤더 — 수동 시트 생성 시 동일하게 유지.
 export const WEEKLY_REPORT_HEADER = [
   "id", "weekStart", "weekEnd", "author", "department",
-  "thisWeek", "nextWeek", "issues", "note", "status", "createdAt", "updatedAt",
+  "thisWeek", "nextWeek", "issues", "note", "status",
+  "docId", "docUrl", "createdAt", "updatedAt",
 ] as const;
 
 function normalizeStatus(raw: unknown): WeeklyReportStatus {
@@ -37,6 +41,8 @@ function fromRow(r: Record<string, string>): WeeklyReport {
     issues: r.issues ?? r["특이사항"] ?? "",
     note: r.note ?? r["비고"] ?? "",
     status: normalizeStatus(r.status ?? r["상태"]),
+    docId: r.docId ?? r["문서ID"] ?? "",
+    docUrl: r.docUrl ?? r["문서URL"] ?? "",
     createdAt: r.createdAt ?? r["생성일시"] ?? "",
     updatedAt: r.updatedAt ?? r["수정일시"] ?? "",
   };
@@ -45,7 +51,8 @@ function fromRow(r: Record<string, string>): WeeklyReport {
 function toRow(w: WeeklyReport): (string | number | boolean)[] {
   return [
     w.id, w.weekStart, w.weekEnd, w.author, w.department,
-    w.thisWeek, w.nextWeek, w.issues, w.note, w.status, w.createdAt, w.updatedAt,
+    w.thisWeek, w.nextWeek, w.issues, w.note, w.status,
+    w.docId, w.docUrl, w.createdAt, w.updatedAt,
   ];
 }
 
@@ -62,8 +69,8 @@ export async function listWeeklyReports(): Promise<WeeklyReport[]> {
 }
 
 export async function createWeeklyReport(
-  input: Omit<WeeklyReport, "id" | "createdAt" | "updatedAt">
-    & { id?: string; createdAt?: string; updatedAt?: string },
+  input: Omit<WeeklyReport, "id" | "docId" | "docUrl" | "createdAt" | "updatedAt">
+    & { id?: string; docId?: string; docUrl?: string; createdAt?: string; updatedAt?: string },
 ): Promise<WeeklyReport> {
   const now = new Date().toISOString();
   const w: WeeklyReport = {
@@ -77,6 +84,8 @@ export async function createWeeklyReport(
     issues: input.issues ?? "",
     note: input.note ?? "",
     status: normalizeStatus(input.status) === "삭제됨" ? "작성중" : normalizeStatus(input.status),
+    docId: input.docId ?? "",
+    docUrl: input.docUrl ?? "",
     createdAt: input.createdAt || now,
     updatedAt: input.updatedAt || now,
   };
@@ -126,4 +135,53 @@ export async function updateWeeklyReport(
 /** 주간보고 소프트 삭제 — status를 "삭제됨"으로 전환 (시트/목록에서 숨김). */
 export async function deleteWeeklyReport(id: string): Promise<WeeklyReport | null> {
   return updateWeeklyReport(id, { status: "삭제됨" });
+}
+
+/**
+ * 주간보고를 Google Docs 문서로 저장(보관)합니다. 데이터(목록·검색·수정)는
+ * 시트에 그대로 유지하고, 여기서는 Apps Script를 통해 Docs 문서를 생성/갱신한
+ * 뒤 그 docId·docUrl 을 시트 행에 다시 기록합니다.
+ *
+ * Apps Script 연결 모드에서만 동작합니다(Apps Script가 사용자 계정으로
+ * DocumentApp/DriveApp 권한을 갖기 때문). 그 외 모드에서는 명확한 안내 에러.
+ */
+export async function exportWeeklyReportToDocs(
+  id: string,
+): Promise<WeeklyReport> {
+  const list = await listWeeklyReports();
+  const report = list.find((w) => w.id === id);
+  if (!report) throw new Error("보고서를 찾을 수 없습니다.");
+
+  const mode = await getSheetsMode();
+  if (mode !== "apps-script") {
+    throw new Error(
+      "Google Docs 저장은 Apps Script 연결 모드에서만 지원됩니다. "
+      + "설정 > Google Sheets 연결에서 Apps Script URL을 등록하고, "
+      + "Apps Script에 createWeeklyReportDoc 핸들러를 배포해 주세요.",
+    );
+  }
+  const url = await getEffectiveAppsScriptUrl();
+  if (!url) throw new Error("Apps Script URL이 설정되지 않았습니다.");
+
+  const fields = [
+    { label: "대상 주간", value: `${report.weekStart} ~ ${report.weekEnd}` },
+    { label: "작성자", value: report.author },
+    { label: "부서 / 팀", value: report.department },
+    { label: "이번 주 수행 업무", value: report.thisWeek },
+    { label: "다음 주 계획", value: report.nextWeek },
+    { label: "특이사항 / 이슈", value: report.issues },
+    { label: "기타 비고", value: report.note },
+    { label: "상태", value: report.status },
+  ];
+
+  const { docId, docUrl } = await appsScriptCreateWeeklyReportDoc(url, {
+    docId: report.docId || undefined,
+    folderName: "주간작업보고",
+    title: `주간 작업보고서 — ${report.author} (${report.weekStart})`,
+    fields,
+    footer: `작성: ${report.createdAt} · 수정: ${report.updatedAt}`,
+  });
+
+  const updated = await updateWeeklyReport(id, { docId, docUrl });
+  return updated ?? { ...report, docId, docUrl };
 }
