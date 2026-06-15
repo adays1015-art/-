@@ -42,6 +42,7 @@ function _dispatch(e) {
       case "appendRow": return _json(_appendRow(body.sheetName, body.values));
       case "updateRow": return _json(_updateRow(body.sheetName, body.rowNumber, body.values));
       case "findRow":   return _json(_findRow(body.sheetName, body.columnName, body.value));
+      case "deleteRow": return _json(_deleteRow(body.sheetName, body.columnName, body.value));
       default:          return _json({ ok: false, error: "Unknown action: " + action });
     }
   } catch (err) {
@@ -141,4 +142,12 @@ function _findRow(name, column, value) {
   var needle = String(value);
   for (var i = 0; i < col.length; i++) if (String(col[i][0]) === needle) return { ok: true, rowNumber: i + 2 };
   return { ok: true, rowNumber: null };
+}
+
+function _deleteRow(name, column, value) {
+  var sh = _sheet(name, false);
+  if (!sh) return { ok: true, deleted: false };
+  var found = _findRow(name, column, value);
+  if (found.rowNumber) { sh.deleteRow(found.rowNumber); return { ok: true, deleted: true }; }
+  return { ok: true, deleted: false };
 }

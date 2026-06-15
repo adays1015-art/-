@@ -33,6 +33,27 @@ export interface Member {
   name: string;
 }
 
+// ─── Schedule (일정) — 달력 대시보드 항목 ────────────────────
+export const SCHEDULE_CATEGORIES = ["회의", "납품", "출장", "점검", "마감", "기타"] as const;
+export type ScheduleCategory = (typeof SCHEDULE_CATEGORIES)[number];
+
+export interface Schedule {
+  id: string;
+  startDate: string;          // YYYY-MM-DD
+  endDate: string;            // 빈 값이면 당일(startDate)
+  title: string;
+  assignee: string;           // 담당자
+  category: ScheduleCategory | "";
+  urgent: boolean;            // 급함 수동 표시
+  confirmed: boolean;         // true=확인됨, false=확인 필요
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ScheduleInput = Pick<
+  Schedule, "startDate" | "endDate" | "title" | "assignee" | "category" | "urgent"
+>;
+
 export type Role = "관리자" | "팀원";
 
 export interface Session {

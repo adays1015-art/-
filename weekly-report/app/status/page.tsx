@@ -1,16 +1,19 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AUTH_COOKIE, verifySession } from "@/lib/auth";
-import { listSchedules } from "@/lib/store";
-import CalendarDashboard from "./CalendarDashboard";
+import { listReports, listMembers } from "@/lib/store";
+import DashboardClient from "../DashboardClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+export default async function StatusPage() {
   const session = verifySession(cookies().get(AUTH_COOKIE)?.value);
   if (!session) redirect("/login");
   if (session.role !== "관리자") redirect("/reports");
 
-  const schedules = await listSchedules().catch(() => []);
-  return <CalendarDashboard initialSchedules={schedules} />;
+  const [reports, members] = await Promise.all([
+    listReports(),
+    listMembers().catch(() => []),
+  ]);
+  return <DashboardClient initialReports={reports} members={members} />;
 }

@@ -47,3 +47,7 @@ export async function findRowNumber(tab: string, column: string, value: string):
   const r = await call("findRow", { sheetName: tab, columnName: column, value });
   return r.rowNumber ?? null;
 }
+
+export async function deleteRowBy(tab: string, column: string, value: string): Promise<void> {
+  await call("deleteRow", { sheetName: tab, columnName: column, value });
+}

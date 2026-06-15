@@ -4,16 +4,18 @@
 
 import { promises as fs } from "fs";
 import path from "path";
-import type { WeeklyReport, ReportInput, Member } from "./types";
+import type { WeeklyReport, ReportInput, Member, Schedule, ScheduleInput, ScheduleCategory } from "./types";
 import { genId } from "./week";
 import * as sheets from "./sheets";
 
 const TAB_REPORTS = "주간보고";
 const TAB_MEMBERS = "팀원";
+const TAB_SCHEDULES = "일정";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const REPORTS_FILE = path.join(DATA_DIR, "reports.json");
 const MEMBERS_FILE = path.join(DATA_DIR, "members.json");
+const SCHEDULES_FILE = path.join(DATA_DIR, "schedules.json");
 
 // ─── file helpers ───────────────────────────────────────────
 async function readFileJson<T>(file: string): Promise<T[]> {
@@ -117,6 +119,94 @@ export async function deleteReport(id: string): Promise<boolean> {
   const next = rows.filter((r) => r.id !== id);
   if (next.length === rows.length) return false;
   await writeFileJson(REPORTS_FILE, next);
+  return true;
+}
+
+// ─── schedules (일정; 달력 대시보드) ────────────────────────
+const SCHEDULE_HEADER = [
+  "id", "startDate", "endDate", "title", "assignee", "category", "urgent", "confirmed", "createdAt", "updatedAt",
+];
+function boolFrom(v: unknown): boolean { return String(v).trim().toUpperCase() === "TRUE"; }
+function scheduleFromRow(r: Record<string, string>): Schedule {
+  return {
+    id: r.id ?? "",
+    startDate: r.startDate ?? "",
+    endDate: r.endDate ?? "",
+    title: r.title ?? "",
+    assignee: r.assignee ?? "",
+    category: (r.category as ScheduleCategory) || "",
+    urgent: boolFrom(r.urgent),
+    confirmed: boolFrom(r.confirmed),
+    createdAt: r.createdAt ?? "",
+    updatedAt: r.updatedAt ?? "",
+  };
+}
+function scheduleToValues(s: Schedule): Record<string, unknown> {
+  return {
+    id: s.id, startDate: s.startDate, endDate: s.endDate, title: s.title,
+    assignee: s.assignee, category: s.category,
+    urgent: s.urgent ? "TRUE" : "FALSE", confirmed: s.confirmed ? "TRUE" : "FALSE",
+    createdAt: s.createdAt, updatedAt: s.updatedAt,
+  };
+}
+
+export async function listSchedules(): Promise<Schedule[]> {
+  const rows = sheets.useSheets()
+    ? (await sheets.getSheet(TAB_SCHEDULES)).map(scheduleFromRow)
+    : await readFileJson<Schedule>(SCHEDULES_FILE);
+  return rows.sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+}
+
+export async function createSchedule(input: ScheduleInput): Promise<Schedule> {
+  const now = new Date().toISOString();
+  const s: Schedule = {
+    id: genId(),
+    startDate: input.startDate,
+    endDate: input.endDate || input.startDate,
+    title: input.title,
+    assignee: input.assignee ?? "",
+    category: input.category ?? "",
+    urgent: !!input.urgent,
+    confirmed: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+  if (sheets.useSheets()) await sheets.appendRow(TAB_SCHEDULES, scheduleToValues(s));
+  else {
+    const rows = await readFileJson<Schedule>(SCHEDULES_FILE);
+    rows.push(s);
+    await writeFileJson(SCHEDULES_FILE, rows);
+  }
+  return s;
+}
+
+export async function updateSchedule(id: string, patch: Partial<Omit<Schedule, "id" | "createdAt">>): Promise<Schedule | null> {
+  if (sheets.useSheets()) {
+    const rowNum = await sheets.findRowNumber(TAB_SCHEDULES, "id", id);
+    if (!rowNum) return null;
+    const existing = (await listSchedules()).find((s) => s.id === id);
+    if (!existing) return null;
+    const merged: Schedule = { ...existing, ...patch, id, createdAt: existing.createdAt, updatedAt: new Date().toISOString() };
+    await sheets.updateRow(TAB_SCHEDULES, rowNum, scheduleToValues(merged));
+    return merged;
+  }
+  const rows = await readFileJson<Schedule>(SCHEDULES_FILE);
+  const idx = rows.findIndex((s) => s.id === id);
+  if (idx === -1) return null;
+  rows[idx] = { ...rows[idx], ...patch, id, createdAt: rows[idx].createdAt, updatedAt: new Date().toISOString() };
+  await writeFileJson(SCHEDULES_FILE, rows);
+  return rows[idx];
+}
+
+export async function deleteSchedule(id: string): Promise<boolean> {
+  if (sheets.useSheets()) {
+    await sheets.deleteRowBy(TAB_SCHEDULES, "id", id);
+    return true;
+  }
+  const rows = await readFileJson<Schedule>(SCHEDULES_FILE);
+  const next = rows.filter((s) => s.id !== id);
+  if (next.length === rows.length) return false;
+  await writeFileJson(SCHEDULES_FILE, next);
   return true;
 }
 
