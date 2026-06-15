@@ -26,6 +26,14 @@ async function readFileJson<T>(file: string): Promise<T[]> {
   } catch { return []; }
 }
 async function writeFileJson<T>(file: string, rows: T[]): Promise<void> {
+  // 배포(서버리스) 환경은 파일이 보존되지 않거나 읽기 전용이다. 혼란스러운
+  // EROFS 대신 명확한 안내를 던진다 — 배포 시엔 Google Sheets가 필요.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "배포 환경에서는 데이터 저장에 Google Sheets가 필요합니다. "
+      + "환경변수 WR_APPS_SCRIPT_URL 을 설정하고 apps-script.gs 를 배포해 주세요.",
+    );
+  }
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(file, JSON.stringify(rows, null, 2), "utf8");
 }
