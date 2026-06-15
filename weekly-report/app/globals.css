@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  background: #F7F6F2;
+  color: #1F1D1A;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "tnum" 1, "cv11" 1;
+}
+
+::selection {
+  background: #BFAC7C;
+  color: #1F1D1A;
+}
+
+/* ─── Print / PDF ──────────────────────────────────────────
+   .no-print 요소(헤더/버튼/목록)는 인쇄에서 숨기고, 선택된 보고서만
+   A4 세로로 깔끔히 출력한다. */
+@media print {
+  html, body {
+    background: #ffffff !important;
+    color: #1F1D1A !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  header, nav, .no-print {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+  .report-root .panel,
+  .report-root [class*="rounded"] {
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .report-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 14mm 12mm;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-bg-panel border border-border rounded-xl2 shadow-card;
+  }
+  .panel-pad {
+    @apply p-5;
+  }
+  .table-th {
+    @apply px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-500 bg-bg-subtle border-b border-border;
+  }
+  .table-td {
+    @apply px-3 py-2 text-sm text-ink-800 border-b border-border;
+  }
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-ink-900 text-bg border-ink-900 hover:bg-ink-800;
+  }
+  .btn-beige {
+    @apply btn bg-beige-200 text-ink-900 border-beige-300 hover:bg-beige-300;
+  }
+  .btn-ghost {
+    @apply btn bg-bg-panel text-ink-800 border-border hover:bg-bg-subtle;
+  }
+  .input {
+    @apply w-full rounded-md border border-border bg-bg-panel px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-beige-300 focus:border-beige-400;
+  }
+  .label {
+    @apply block text-xs font-medium text-ink-600 mb-1;
+  }
+}
