@@ -33,7 +33,7 @@ export default function LoginClient({ members }: { members: { team: string; name
       });
       const json = await res.json();
       if (!res.ok) { setError(json.error || "로그인 실패"); return; }
-      router.push(role === "관리자" ? "/" : "/reports");
+      router.push("/");
       router.refresh();
     } catch (err) {
       setError((err as Error).message);
