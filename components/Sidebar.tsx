@@ -47,8 +47,6 @@ const NAV: NavItem[] = [
   { href: "/finished-sets", label: "완제품 세트 재고", icon: Package },
   { href: "/shipments", label: "출고 관리", icon: Truck },
 
-  { section: "보고", href: "/weekly-reports", label: "주간 작업보고서", icon: FileText },
-
   // ─── 관리 (PIN-gated; hidden until unlocked) ─────────────
   { section: "관리", href: "/daily-report", label: "일일 작업 보고서", icon: FileText, protected: true },
   { href: "/history", label: "작업 이력", icon: History, protected: true },

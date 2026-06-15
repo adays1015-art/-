@@ -38,7 +38,6 @@ import type {
   Equipment,
   SetBomLine,
   Client,
-  WeeklyReport,
 } from "@/types";
 
 type Store = {
@@ -64,7 +63,6 @@ type Store = {
   equipment?: Equipment[];
   setBom?: SetBomLine[];
   clients?: Client[];
-  weeklyReports?: WeeklyReport[];
 };
 
 declare global {
@@ -101,7 +99,6 @@ export function getStore(): Store {
       equipment: [],
       setBom: [],
       clients: [],
-      weeklyReports: [],
     };
   }
   return globalThis.__BFTER_STORE__;
