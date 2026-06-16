@@ -457,33 +457,31 @@ export default function UpcycleMaterialsClient({
             <div><label className="label">입고일</label>
               <input className="input" type="date" value={editing.inboundDate} onChange={(e) => setEditing({ ...editing, inboundDate: e.target.value })} /></div>
 
-            {/* ─── 폐화장품 인풋 (받은 개수 · 개당 내용물 무게 · 들어온 화장품) ─── */}
+            {/* ─── 폐화장품 인풋 (받은 개수 · 패키지 포함/제외 무게 · 폐기물 자동) ─── */}
             <div className="col-span-2 panel panel-pad bg-bg-subtle/40">
-              <div className="text-xs font-medium text-ink-700 mb-2">폐화장품 인풋 (제공처 수율 계산용)</div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="text-xs font-medium text-ink-700 mb-2">폐화장품 인풋 (받은 배치 기준 · 제공처 수율 계산용)</div>
+              <div className="grid grid-cols-4 gap-3">
                 <div><label className="label">받은 수량 (개)</label>
                   <input className="input" type="number" value={editing.receivedUnits ?? ""} placeholder="예: 100"
+                    onChange={(e) => setEditing({ ...editing, receivedUnits: e.target.value === "" ? undefined : Number(e.target.value) })} /></div>
+                <div><label className="label">패키지 포함 무게 (kg)</label>
+                  <input className="input" type="number" step="0.001" value={editing.grossWeight ?? ""} placeholder="통째 무게"
+                    onChange={(e) => setEditing({ ...editing, grossWeight: e.target.value === "" ? undefined : Number(e.target.value) })} /></div>
+                <div><label className="label">패키지 제외 무게 (kg)</label>
+                  <input className="input" type="number" step="0.001" value={editing.netWeight ?? ""} placeholder="순 내용물"
                     onChange={(e) => {
-                      const ru = e.target.value === "" ? undefined : Number(e.target.value);
-                      const cw = editing.contentWeightPerUnit;
-                      const next = { ...editing, receivedUnits: ru };
-                      if (ru != null && cw != null) { next.stock = Math.round(ru * cw * 100) / 100; next.unit = "g"; }
+                      const nw = e.target.value === "" ? undefined : Number(e.target.value);
+                      const next = { ...editing, netWeight: nw };
+                      if (nw != null) { next.stock = nw; next.unit = "kg"; }
                       setEditing(next);
                     }} /></div>
-                <div><label className="label">개당 내용물 무게 (g)</label>
-                  <input className="input" type="number" step="0.01" value={editing.contentWeightPerUnit ?? ""} placeholder="패키지 제외"
-                    onChange={(e) => {
-                      const cw = e.target.value === "" ? undefined : Number(e.target.value);
-                      const ru = editing.receivedUnits;
-                      const next = { ...editing, contentWeightPerUnit: cw };
-                      if (ru != null && cw != null) { next.stock = Math.round(ru * cw * 100) / 100; next.unit = "g"; }
-                      setEditing(next);
-                    }} /></div>
-                <div><label className="label">내용물 총량 (g)</label>
+                <div><label className="label">폐기물 (kg)</label>
                   <input className="input bg-bg-subtle" type="number" readOnly
-                    value={(editing.receivedUnits ?? 0) * (editing.contentWeightPerUnit ?? 0) || ""} /></div>
+                    value={editing.grossWeight != null && editing.netWeight != null
+                      ? Math.round((editing.grossWeight - editing.netWeight) * 1000) / 1000
+                      : ""} /></div>
               </div>
-              <div className="text-[10px] text-ink-500 mt-1">받은 수량 × 개당 무게 = 내용물 총량(g) → <b>현재재고(g)</b>에 자동 반영. 패키지는 제외하고 순 내용물만.</div>
+              <div className="text-[10px] text-ink-500 mt-1">패키지 포함 − 제외 = <b>폐기물(kg)</b> 자동. 패키지 제외(내용물) 무게가 <b>현재재고(kg)</b>로 들어갑니다.</div>
               <div className="mt-2"><label className="label">들어온 화장품 품목/번호 (수기)</label>
                 <input className="input" value={editing.sourceItems ?? ""} placeholder="예: 립스틱 3,7번 / A사 리퍼브" onChange={(e) => setEditing({ ...editing, sourceItems: e.target.value })} /></div>
             </div>

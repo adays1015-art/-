@@ -18,12 +18,11 @@ function isCosmetic(m: Material | undefined): boolean {
 export interface SupplierYieldRow {
   supplier: string;          // 제공처 (원료 공급처 칸)
   receivedUnits: number;     // 받은 총 개수
-  contentWeightG: number;    // 내용물 총량(g) = Σ 받은개수 × 개당무게
-  consumedG: number;         // 생산에 실제 투입된 내용물(g)
+  contentWeightKg: number;   // 내용물(패키지 제외) 총 kg = Σ netWeight
   outputUnits: number;       // 산출 개수 (LOT actualProducedQty 귀속분)
   // 수율
   yieldPerUnit: number | null;   // 산출개수 / 받은개수
-  yieldPerKg: number | null;     // 산출개수 / (내용물 kg)
+  yieldPerKg: number | null;     // 산출개수 / 내용물 kg
   materialCount: number;     // 이 제공처에서 받은 원료 종류 수
 }
 
@@ -56,7 +55,7 @@ export async function listSupplierYield(): Promise<SupplierYieldRow[]> {
     let row = agg.get(key);
     if (!row) {
       row = {
-        supplier: key, receivedUnits: 0, contentWeightG: 0, consumedG: 0,
+        supplier: key, receivedUnits: 0, contentWeightKg: 0,
         outputUnits: 0, yieldPerUnit: null, yieldPerKg: null, materialCount: 0,
       };
       agg.set(key, row);
@@ -69,7 +68,11 @@ export async function listSupplierYield(): Promise<SupplierYieldRow[]> {
     row.materialCount += 1;
     const units = m.receivedUnits ?? 0;
     row.receivedUnits += units;
-    row.contentWeightG += units * (m.contentWeightPerUnit ?? 0);
+    // 내용물(kg): netWeight 우선, 없으면 (구)개당무게(g)×개수/1000
+    const netKg = m.netWeight != null
+      ? m.netWeight
+      : (m.contentWeightPerUnit != null ? (units * m.contentWeightPerUnit) / 1000 : 0);
+    row.contentWeightKg += netKg;
   }
 
   // ─── 아웃풋: LOT 산출개수를 제공처별 투입 내용물(g) 비중으로 안분 ───
@@ -100,7 +103,6 @@ export async function listSupplierYield(): Promise<SupplierYieldRow[]> {
     if (totalG <= 0) continue;
     for (const [supplier, g] of entries) {
       const row = ensure(supplier);
-      row.consumedG += g;
       row.outputUnits += output * (g / totalG);
     }
   }
@@ -111,8 +113,8 @@ export async function listSupplierYield(): Promise<SupplierYieldRow[]> {
     row.yieldPerUnit = row.receivedUnits > 0
       ? Math.round((row.outputUnits / row.receivedUnits) * 1000) / 1000
       : null;
-    row.yieldPerKg = row.contentWeightG > 0
-      ? Math.round((row.outputUnits / (row.contentWeightG / 1000)) * 100) / 100
+    row.yieldPerKg = row.contentWeightKg > 0
+      ? Math.round((row.outputUnits / row.contentWeightKg) * 100) / 100
       : null;
   }
 

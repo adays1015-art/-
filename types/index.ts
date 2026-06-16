@@ -61,7 +61,11 @@ export interface Material {
   // ─── 업사이클 전용 (폐화장품) — 기존 라인에서는 미사용 ───
   // 통째로 받은 개수(예: 립스틱 100개)
   receivedUnits?: number;
-  // 개당 내용물 무게(g) — 패키지 제외 순 내용물 (예: 3g)
+  // 받은 배치 전체 무게(kg) — 패키지 포함
+  grossWeight?: number;
+  // 받은 배치 내용물 무게(kg) — 패키지 제외(실제 사용 가능 = 재고)
+  netWeight?: number;
+  // (구) 개당 내용물 무게(g) — net/gross 도입 전 호환용. 신규 입력엔 미사용.
   contentWeightPerUnit?: number;
   // 들어온 화장품 품목/번호 — 수기 자유 입력 (예: "립스틱 3,7번")
   sourceItems?: string;

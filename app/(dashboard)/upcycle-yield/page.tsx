@@ -11,10 +11,10 @@ export default async function UpcycleYieldPage() {
   const total = rows.reduce(
     (a, r) => ({
       receivedUnits: a.receivedUnits + r.receivedUnits,
-      contentWeightG: a.contentWeightG + r.contentWeightG,
+      contentWeightKg: a.contentWeightKg + r.contentWeightKg,
       outputUnits: a.outputUnits + r.outputUnits,
     }),
-    { receivedUnits: 0, contentWeightG: 0, outputUnits: 0 },
+    { receivedUnits: 0, contentWeightKg: 0, outputUnits: 0 },
   );
 
   return (
@@ -29,8 +29,8 @@ export default async function UpcycleYieldPage() {
 
       {rows.length === 0 ? (
         <div className="panel p-6 text-sm text-ink-500">
-          아직 집계할 데이터가 없습니다. 업사이클 원료재고에 <b>제공처(공급처)</b>·<b>받은 수량</b>·
-          <b>개당 내용물 무게</b>를 입력하고, 업사이클 생산 LOT을 등록하면 여기에 수율이 표시됩니다.
+          아직 집계할 데이터가 없습니다. 업사이클 원료재고에 <b>제공처</b>·<b>받은 수량</b>·
+          <b>패키지 제외 무게(kg)</b>를 입력하고, 업사이클 생산 LOT을 등록하면 여기에 수율이 표시됩니다.
         </div>
       ) : (
         <div className="panel overflow-x-auto">
@@ -40,8 +40,7 @@ export default async function UpcycleYieldPage() {
                 <th className="table-th text-left">제공처</th>
                 <th className="table-th text-right">원료 종류</th>
                 <th className="table-th text-right">받은 개수</th>
-                <th className="table-th text-right">내용물 총량(g)</th>
-                <th className="table-th text-right">생산 투입(g)</th>
+                <th className="table-th text-right">내용물(kg)</th>
                 <th className="table-th text-right">산출 개수</th>
                 <th className="table-th text-right">수율(개/받은개수)</th>
                 <th className="table-th text-right">수율(개/kg)</th>
@@ -53,8 +52,7 @@ export default async function UpcycleYieldPage() {
                   <td className="table-td font-medium text-ink-900">{r.supplier}</td>
                   <td className="table-td text-right tabular-nums text-ink-500">{r.materialCount}</td>
                   <td className="table-td text-right tabular-nums">{fmt(r.receivedUnits)}</td>
-                  <td className="table-td text-right tabular-nums">{fmt(r.contentWeightG, 1)}</td>
-                  <td className="table-td text-right tabular-nums text-ink-500">{fmt(r.consumedG, 1)}</td>
+                  <td className="table-td text-right tabular-nums">{fmt(r.contentWeightKg, 2)}</td>
                   <td className="table-td text-right tabular-nums font-semibold">{fmt(r.outputUnits, 2)}</td>
                   <td className="table-td text-right tabular-nums">
                     {r.yieldPerUnit != null ? `${fmt(r.yieldPerUnit * 100, 1)}%` : "—"}
@@ -70,14 +68,13 @@ export default async function UpcycleYieldPage() {
                 <td className="table-td">합계</td>
                 <td className="table-td"></td>
                 <td className="table-td text-right tabular-nums">{fmt(total.receivedUnits)}</td>
-                <td className="table-td text-right tabular-nums">{fmt(total.contentWeightG, 1)}</td>
-                <td className="table-td"></td>
+                <td className="table-td text-right tabular-nums">{fmt(total.contentWeightKg, 2)}</td>
                 <td className="table-td text-right tabular-nums">{fmt(total.outputUnits, 2)}</td>
                 <td className="table-td text-right tabular-nums">
                   {total.receivedUnits > 0 ? `${fmt((total.outputUnits / total.receivedUnits) * 100, 1)}%` : "—"}
                 </td>
                 <td className="table-td text-right tabular-nums">
-                  {total.contentWeightG > 0 ? fmt(total.outputUnits / (total.contentWeightG / 1000), 2) : "—"}
+                  {total.contentWeightKg > 0 ? fmt(total.outputUnits / total.contentWeightKg, 2) : "—"}
                 </td>
               </tr>
             </tfoot>
