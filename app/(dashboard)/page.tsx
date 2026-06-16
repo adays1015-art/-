@@ -53,18 +53,27 @@ export default async function Dashboard() {
     (m) => isFragranceMaterial(m) && m.stock < m.safetyStock,
   );
 
-  // ─── 2. 운영 요약 데이터 ─────────────────────────────────
-  // 생산 품목 수 = 완료 LOT가 1건 이상 있는 distinct itemNo 개수
+  // ─── 2. 운영 요약 데이터 (최근 7일 기준) ──────────────────
+  // 오해 방지: 대시보드 운영 요약은 "오늘"이 아니라 최근 7일 기준으로 집계.
+  const cutoff7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    .toISOString().slice(0, 10);
+  // 생산 품목 수 = 최근 7일 내 완료 LOT가 있는 distinct itemNo 개수
   const completedItemLots = itemLots.filter((l) => l.status === "완료");
+  const recentCompletedItemLots = completedItemLots.filter(
+    (l) => (l.date ?? "") >= cutoff7,
+  );
   const producedItemNos = Array.from(
-    new Set(completedItemLots.map((l) => l.itemNo).filter(Boolean)),
+    new Set(recentCompletedItemLots.map((l) => l.itemNo).filter(Boolean)),
   ).sort((a, b) => Number(a) - Number(b));
-  // 생산 향료 수 = 완료 향 LOT의 distinct fragranceCode
+  // 생산 향료 수 = 최근 7일 완료 향 LOT의 distinct fragranceCode
   const completedFragranceLots = fragranceLots.filter(
     (l) => (l.status ?? (l.inventoryStatus === "사용가능" ? "완료" : "")) === "완료",
   );
+  const recentCompletedFragranceLots = completedFragranceLots.filter(
+    (l) => (l.productionDate ?? "") >= cutoff7,
+  );
   const producedFragranceCodes = Array.from(
-    new Set(completedFragranceLots.map((l) => l.fragranceCode).filter(Boolean)),
+    new Set(recentCompletedFragranceLots.map((l) => l.fragranceCode).filter(Boolean)),
   );
   // 출고 총액 = Σ(세트 적용 1개 원가 × 출고수량). 세트 적용 원가는
   // 구성품 itemNo의 4-tier 적용 1개 원가 합산. 절대 재고 전체 × 가격 X.
@@ -98,7 +107,9 @@ export default async function Dashboard() {
     }
     if (opt.optionCode) setCostByOptionCode.set(opt.optionCode, setCost);
   }
-  const shipmentTotalAmount = shipments.reduce((sum, s) => {
+  // 최근 7일 출고만 집계 (대시보드 운영 요약 = 최근 7일 기준)
+  const recentWeekShipments = shipments.filter((s) => (s.date ?? "") >= cutoff7);
+  const shipmentTotalAmount = recentWeekShipments.reduce((sum, s) => {
     const setCost = setCostByOptionCode.get(s.optionCode) ?? 0;
     return sum + setCost * (s.qty || 0);
   }, 0);
@@ -181,8 +192,8 @@ export default async function Dashboard() {
     .sort((a, b) => a.ratio - b.ratio)
     .slice(0, 8);
 
-  // ─── 6. 출고 제품 ──────────────────────────────────────
-  const recentShipments = shipments.slice(0, 12);
+  // ─── 6. 출고 제품 (최근 7일 우선) ───────────────────────
+  const recentShipments = recentWeekShipments.slice(0, 30);
 
   // ─── Header summary value formatters ────────────────────
   const producedItemNoPreview =
@@ -192,11 +203,11 @@ export default async function Dashboard() {
         ? producedItemNos.join(", ")
         : `${producedItemNos.slice(0, 3).join(", ")} 외 ${producedItemNos.length - 3}`;
   const producedFragrancePreview =
-    completedFragranceLots.length === 0
+    recentCompletedFragranceLots.length === 0
       ? "—"
       : (() => {
           const names = Array.from(
-            new Set(completedFragranceLots.map((l) => l.fragranceName).filter(Boolean)),
+            new Set(recentCompletedFragranceLots.map((l) => l.fragranceName).filter(Boolean)),
           );
           return names.length <= 2 ? names.join(", ") : `${names.slice(0, 2).join(", ")} 외 ${names.length - 2}`;
         })();
@@ -205,7 +216,7 @@ export default async function Dashboard() {
     <div>
       <PageHeader
         title="대시보드"
-        description="오늘 운영 현황 — 부족 알림 · 운영 요약 · 사용량 상위 · 소진 예상 · 출고"
+        description="최근 7일 운영 현황 — 부족 알림 · 운영 요약 · 사용량 상위 · 소진 예상 · 출고"
       />
 
       {/* ─── 1. 상단 핵심 부족 알림 카드 ───────────────────── */}
@@ -243,21 +254,21 @@ export default async function Dashboard() {
           품목번호는 별도 카드가 아닌 "생산 품목" 카드의 보조 텍스트로 통합. */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
         <StatCard
-          label="생산 품목"
+          label="생산 품목 (최근 7일)"
           value={`${producedItemNos.length}종`}
-          hint={producedItemNos.length > 0 ? producedItemNoPreview : "완료 LOT 없음"}
+          hint={producedItemNos.length > 0 ? producedItemNoPreview : "최근 7일 완료 LOT 없음"}
           icon={<Factory size={18} />}
         />
         <StatCard
-          label="출고 총액"
+          label="출고 총액 (최근 7일)"
           value={formatCurrency(shipmentTotalAmount)}
-          hint={`전체 출고 ${shipments.length}건`}
+          hint={`최근 7일 출고 ${recentWeekShipments.length}건 · 전체 ${shipments.length}건`}
           icon={<Truck size={18} />}
         />
         <StatCard
-          label="생산 향료"
+          label="생산 향료 (최근 7일)"
           value={`${producedFragranceCodes.length}종`}
-          hint={producedFragranceCodes.length > 0 ? producedFragrancePreview : "완료 LOT 없음"}
+          hint={producedFragranceCodes.length > 0 ? producedFragrancePreview : "최근 7일 완료 LOT 없음"}
           icon={<Sparkles size={18} />}
         />
       </section>
@@ -382,12 +393,12 @@ export default async function Dashboard() {
       <section className="panel panel-pad mt-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-ink-900 tracking-tight flex items-center gap-2">
-            <Truck size={14} /> 출고 제품
+            <Truck size={14} /> 출고 제품 <span className="text-[11px] font-normal text-ink-500">(최근 7일)</span>
           </h2>
           <Link href="/shipments" className="text-xs text-beige-600 hover:underline">출고 관리 →</Link>
         </div>
         {recentShipments.length === 0 ? (
-          <div className="text-sm text-ink-500 py-8 text-center">출고 기록이 없습니다.</div>
+          <div className="text-sm text-ink-500 py-8 text-center">최근 7일 출고 기록이 없습니다.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
