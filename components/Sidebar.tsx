@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Boxes, Tag, ListTree, Factory, Layers, Combine,
   Wrench, Package, Truck, Calculator, History, Database, Settings,
   ArrowLeftRight, Copy, FlaskConical, Droplet, Beaker, FileText,
-  Lock, Unlock, KeyRound, X,
+  Lock, Unlock, KeyRound, X, Images,
 } from "lucide-react";
 import type { Role } from "@/lib/roles";
 import { canAccess } from "@/lib/roles";
@@ -43,6 +43,7 @@ const NAV: NavItem[] = [
   { href: "/upcycle-bom", label: "업사이클 BOM", icon: ListTree },
   { href: "/upcycle-production", label: "업사이클 생산", icon: Factory },
   { href: "/upcycle-yield", label: "제공처 수율", icon: Calculator },
+  { href: "/test-results", label: "테스트 결과", icon: Images },
 
   { section: "향", href: "/fragrances", label: "향 마스터", icon: Droplet },
   { href: "/fragrance-bom", label: "향 BOM", icon: Beaker },

@@ -38,6 +38,7 @@ import type {
   Equipment,
   SetBomLine,
   Client,
+  TestResult,
 } from "@/types";
 
 type Store = {
@@ -69,6 +70,7 @@ type Store = {
   upcycleBom: ItemBomLine[];
   upcycleLots: ItemLot[];
   upcycleExecution?: ProductionExecutionMaterial[];
+  testResults: TestResult[];
 };
 
 declare global {
@@ -110,6 +112,7 @@ export function getStore(): Store {
       upcycleBom: [],
       upcycleLots: [],
       upcycleExecution: [],
+      testResults: [],
     };
   }
   return globalThis.__BFTER_STORE__;

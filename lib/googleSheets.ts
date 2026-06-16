@@ -66,6 +66,8 @@ export const SHEET_TABS = {
   upcycleBom: "업사이클BOM",
   upcycleLots: "업사이클생산LOT",
   upcycleExecution: "업사이클생산투입원료",
+  // ─── 테스트 결과 (이미지 비교) ───
+  testResults: "테스트결과",
 } as const;
 
 export type SheetTabKey = keyof typeof SHEET_TABS;

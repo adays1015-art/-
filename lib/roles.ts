@@ -12,6 +12,7 @@ export type Area =
   | "item-production" | "set-assembly" | "shipment"
   // 업사이클링 라인
   | "upcycle-materials" | "upcycle-items" | "upcycle-bom" | "upcycle-production"
+  | "test-results"
   | "delete";
 
 export function canEdit(role: Role | null, area: Area): boolean {
@@ -20,7 +21,7 @@ export function canEdit(role: Role | null, area: Area): boolean {
   if (role === "조회자") return false;
   // 생산팀 — 품목 생산과 동일하게 업사이클 생산도 편집 가능
   return area === "item-production" || area === "set-assembly" || area === "shipment"
-    || area === "upcycle-production";
+    || area === "upcycle-production" || area === "test-results";
 }
 
 export function canAccess(role: Role | null, path: string): boolean {

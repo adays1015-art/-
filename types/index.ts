@@ -369,6 +369,21 @@ export interface Shipment {
   line?: ShipmentLine;
 }
 
+// ─── 테스트 결과 (이미지 비교) ───────────────────────────────
+// 샘플/배치 테스트 결과를 이미지와 함께 기록하고 2개를 나란히 비교.
+// 이미지는 클라이언트에서 압축(JPEG, 셀 5만자 한도 내)한 data URL 로 시트에 저장.
+export interface TestResult {
+  id: string;
+  date: string;          // 테스트일
+  title: string;         // 테스트명/샘플명
+  itemNo: string;        // 대상 품목번호 (자유 입력, 선택)
+  assignee: string;      // 작성자
+  result: string;        // 결과/평가
+  note: string;          // 메모
+  imageData: string;     // 압축 이미지 data URL (data:image/jpeg;base64,...)
+  status: string;        // "활성" | "삭제됨" (소프트 삭제)
+}
+
 export type ShipmentLine = "기존" | "업사이클";
 
 // ─── Work history ───────────────────────────────────────────
