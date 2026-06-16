@@ -28,6 +28,9 @@ export type MaterialCategory =
 
 export interface Material {
   id: string;
+  // 원료 출처 — 업사이클 BOM에서 기존/업사이클 원료를 한 목록에 합쳐 보여줄 때
+  // 구분용. 서비스 reader 가 채우지 않으면 undefined (기존 동작 영향 없음).
+  source?: "기존" | "업사이클";
   // Canonical aliases for the user's spec headers (materialCode, materialName)
   // — populated by services/materials.ts:fromRow even when the sheet uses
   //   the legacy `name` column.

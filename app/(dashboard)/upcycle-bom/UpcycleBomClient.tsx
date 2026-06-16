@@ -158,7 +158,8 @@ export default function UpcycleBomClient({
     const priceInfo = m.unitCost && useUnit
       ? ` · ${formatCurrency(m.unitCost)}/${useUnit}`
       : "";
-    return `[${m.category}] ${name}${code}${unitInfo}${priceInfo}`;
+    const src = m.source === "기존" ? "기존·" : m.source === "업사이클" ? "" : "";
+    return `[${src}${m.category}] ${name}${code}${unitInfo}${priceInfo}`;
   }
   // Locate the material the row currently references — tries materialId, then
   // materialCode, then materialName so existing rows keep their selection even
@@ -261,7 +262,7 @@ export default function UpcycleBomClient({
     <div>
       <PageHeader
         title="업사이클 BOM"
-        description="업사이클 품목별 자재명세서. 생산 시 실투입량으로 업사이클 원료가 차감됩니다."
+        description="업사이클 품목별 자재명세서. 업사이클·기존 원료재고를 함께 선택할 수 있습니다. ※ 생산 시 실투입 차감은 업사이클 원료재고에서만 이루어집니다(기존 원료는 레시피/원가 참고용)."
       />
 
       <div className="grid grid-cols-12 gap-4">
@@ -460,10 +461,16 @@ export default function UpcycleBomClient({
                               });
                             }}>
                             <option value="">— 원료 선택 —</option>
-                            {materials.map((m, i) => {
-                              const k = materialKey(m, i);
-                              return <option key={k} value={k}>{materialLabel(m)}</option>;
-                            })}
+                            <optgroup label="업사이클 원료재고">
+                              {materials.map((m, i) => (m.source !== "기존") && (
+                                <option key={materialKey(m, i)} value={materialKey(m, i)}>{materialLabel(m)}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="기존 원료재고">
+                              {materials.map((m, i) => (m.source === "기존") && (
+                                <option key={materialKey(m, i)} value={materialKey(m, i)}>{materialLabel(m)}</option>
+                              ))}
+                            </optgroup>
                           </select>
                         </TD>
                         <TD>
