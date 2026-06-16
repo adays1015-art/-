@@ -347,7 +347,7 @@ export default function MaterialsClient({
                           {showPer && (
                             <div className="flex items-baseline justify-between gap-2">
                               <span className="text-[10px] text-ink-400">{costUnit}당</span>
-                              <span className="text-ink-900">{formatCurrency(per as number)}</span>
+                              <span className="text-ink-900 font-bold">{formatCurrency(per as number)}</span>
                             </div>
                           )}
                         </div>
