@@ -326,7 +326,7 @@ export default function MaterialsClient({
                     })()}
                   </TD>
                   <TD>{m.supplier}</TD>
-                  <TD className="text-right tabular-nums">
+                  <TD className="tabular-nums">
                     {(() => {
                       const cap = Number(m.capacity) || 0;
                       const useUnit = usageUnitFor(m) || m.unit || "";
@@ -336,15 +336,21 @@ export default function MaterialsClient({
                       const costUnit = m.costUnit || useUnit;
                       const showPer = per != null && (cap > 0 || (!!m.unitCost && m.unitCost !== m.unitPrice));
                       return (
-                        <>
-                          <div className="text-ink-900">
-                            {formatCurrency(m.unitPrice)}
-                            {cap > 0 && <span className="text-[10px] text-ink-400"> /{formatNumber(cap)}{m.unit}</span>}
+                        <div className="space-y-0.5">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-[10px] text-ink-400">구매가</span>
+                            <span className="text-ink-900">
+                              {formatCurrency(m.unitPrice)}
+                              {cap > 0 && <span className="text-[10px] text-ink-400"> /{formatNumber(cap)}{m.unit}</span>}
+                            </span>
                           </div>
                           {showPer && (
-                            <div className="text-[11px] text-ink-500">{formatCurrency(per as number)}/{costUnit}</div>
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-[10px] text-ink-400">{costUnit}당</span>
+                              <span className="text-ink-900">{formatCurrency(per as number)}</span>
+                            </div>
                           )}
-                        </>
+                        </div>
                       );
                     })()}
                   </TD>
