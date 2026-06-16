@@ -1,5 +1,6 @@
 import AdminGate from "@/components/AdminGate";
 import { listItemLots } from "@/services/itemProduction";
+import { listItemLots as listUpcycleLots } from "@/services/upcycleProduction";
 import { listFragranceLots, listFragranceExecution } from "@/services/fragranceProduction";
 import { listMaterials } from "@/services/materials";
 import { listItems } from "@/services/items";
@@ -12,10 +13,11 @@ export const dynamic = "force-dynamic";
 
 export default async function DailyReportPage() {
   const [
-    itemLots, fragranceLots, fragranceExec,
+    itemLots, upcycleLots, fragranceLots, fragranceExec,
     materials, items, shipments, execution, transactions,
   ] = await Promise.all([
     listItemLots(),
+    listUpcycleLots(),
     listFragranceLots(),
     listFragranceExecution(),
     listMaterials(),
@@ -28,6 +30,7 @@ export default async function DailyReportPage() {
     <AdminGate>
       <DailyReportClient
         itemLots={itemLots}
+        upcycleLots={upcycleLots}
         fragranceLots={fragranceLots}
         fragranceExec={fragranceExec}
         materials={materials}

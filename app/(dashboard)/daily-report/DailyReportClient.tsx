@@ -100,6 +100,7 @@ function escapeCsv(v: string | number | boolean | null | undefined): string {
 
 interface Props {
   itemLots: ItemLot[];
+  upcycleLots: ItemLot[];
   fragranceLots: FragranceLot[];
   fragranceExec: FragranceExecutionMaterial[];
   materials: Material[];
@@ -118,9 +119,10 @@ export default function DailyReportClient(p: Props) {
   const workers = useMemo(() => {
     const s = new Set<string>();
     for (const l of p.itemLots) if (l.assignee) s.add(l.assignee);
+    for (const l of p.upcycleLots) if (l.assignee) s.add(l.assignee);
     for (const l of p.fragranceLots) if (l.worker) s.add(l.worker);
     return Array.from(s).sort();
-  }, [p.itemLots, p.fragranceLots]);
+  }, [p.itemLots, p.upcycleLots, p.fragranceLots]);
 
   // selectedDate normalized once, used by every matcher.
   const selectedDate = useMemo(() => normalizeYmd(date), [date]);
@@ -136,6 +138,15 @@ export default function DailyReportClient(p: Props) {
       && resolveRowDate(l as unknown as Record<string, unknown>) === selectedDate
       && (!worker || l.assignee === worker)),
     [p.itemLots, selectedDate, worker],
+  );
+  const todayUpcycleLots = useMemo(
+    () => p.upcycleLots.filter((l) =>
+      l.status !== "폐기"
+      && l.status !== "테스트"
+      && l.status !== "삭제됨"
+      && resolveRowDate(l as unknown as Record<string, unknown>) === selectedDate
+      && (!worker || l.assignee === worker)),
+    [p.upcycleLots, selectedDate, worker],
   );
   const todayFragranceLots = useMemo(
     () => p.fragranceLots.filter((l) =>
@@ -174,23 +185,39 @@ export default function DailyReportClient(p: Props) {
 
   // ─── KPI roll-ups ────────────────────────────────────────
   const kpis = useMemo(() => {
-    const totalProducedQty = todayItemLots.reduce((s, l) => s + (l.actualProducedQty ?? l.completedQty ?? 0), 0);
-    // 총 생산 원가 = 품목생산LOT actualMaterialTotalCost + 향생산LOT actualMaterialTotalCost
-    const itemProductionCost = todayItemLots.reduce((s, l) =>
-      s + (l.actualMaterialTotalCost ?? (l.actualUnitCost && l.actualProducedQty ? l.actualUnitCost * l.actualProducedQty : 0)), 0);
+    const lotQty = (l: ItemLot) => l.actualProducedQty ?? l.completedQty ?? 0;
+    const lotCost = (l: ItemLot) =>
+      l.actualMaterialTotalCost ?? (l.actualUnitCost && l.actualProducedQty ? l.actualUnitCost * l.actualProducedQty : 0);
+    // 생산량 — 기존(품목) + 업사이클 분리 집계 후 합산.
+    const baseProducedQty = todayItemLots.reduce((s, l) => s + lotQty(l), 0);
+    const upcycleProducedQty = todayUpcycleLots.reduce((s, l) => s + lotQty(l), 0);
+    const totalProducedQty = baseProducedQty + upcycleProducedQty;
+    // 총 생산 원가 = 품목생산 + 향생산 + 업사이클생산 (각 LOT actualMaterialTotalCost)
+    const itemProductionCost = todayItemLots.reduce((s, l) => s + lotCost(l), 0);
     const fragranceProductionCost = todayFragranceLots.reduce(
       (s, l) => s + (l.actualMaterialTotalCost || 0), 0);
-    const totalProductionCost = itemProductionCost + fragranceProductionCost;
-    const totalShipmentAmount = todayShipments.reduce((s, x) => s + (x.qty * 0), 0); // shipments have no price column — see note below
+    const upcycleProductionCost = todayUpcycleLots.reduce((s, l) => s + lotCost(l), 0);
+    const baseProductionCost = itemProductionCost + fragranceProductionCost;
+    const totalProductionCost = baseProductionCost + upcycleProductionCost;
+    // 출고 금액 = 수량 × 단가 (단가 컬럼 도입 후 집계). 기존/업사이클 분리.
+    const amountOf = (x: Shipment) => x.qty * (x.unitPrice ?? 0);
+    const upcycleShipments = todayShipments.filter((x) => x.line === "업사이클");
+    const baseShipments = todayShipments.filter((x) => x.line !== "업사이클");
+    const baseShipmentAmount = baseShipments.reduce((s, x) => s + amountOf(x), 0);
+    const upcycleShipmentAmount = upcycleShipments.reduce((s, x) => s + amountOf(x), 0);
+    const totalShipmentAmount = baseShipmentAmount + upcycleShipmentAmount;
+    const upcycleShipQty = upcycleShipments.reduce((s, x) => s + x.qty, 0);
     const lowStockCount = p.materials.filter((m) => m.stock < m.safetyStock).length
       + p.items.filter((i) => i.stock < i.safetyStock).length;
     const fragranceCount = todayFragranceLots.length;
     const disposalCount = todayDisposals.length;
     return {
-      totalProducedQty, totalProductionCost, totalShipmentAmount,
+      totalProducedQty, baseProducedQty, upcycleProducedQty,
+      totalProductionCost, baseProductionCost, upcycleProductionCost,
+      totalShipmentAmount, baseShipmentAmount, upcycleShipmentAmount, upcycleShipQty,
       lowStockCount, fragranceCount, disposalCount,
     };
-  }, [todayItemLots, todayShipments, todayFragranceLots, todayDisposals, p.materials, p.items]);
+  }, [todayItemLots, todayUpcycleLots, todayShipments, todayFragranceLots, todayDisposals, p.materials, p.items]);
 
   // ─── Rich debug data (temporary) ──────────────────────────
   // For each source: total / matched / first 3 raw / first 3 normalized.
@@ -270,6 +297,9 @@ export default function DailyReportClient(p: Props) {
     lines.push("[KPI]");
     lines.push(`총 생산량,${kpis.totalProducedQty}`);
     lines.push(`총 생산 원가,${Math.round(kpis.totalProductionCost)}`);
+    lines.push(`총 출고 금액,${Math.round(kpis.totalShipmentAmount)}`);
+    lines.push(`  └ 기존 출고 금액,${Math.round(kpis.baseShipmentAmount)}`);
+    lines.push(`  └ 업사이클 출고 금액,${Math.round(kpis.upcycleShipmentAmount)}`);
     lines.push(`부족 재고 개수,${kpis.lowStockCount}`);
     lines.push(`오늘 생산된 향료 수,${kpis.fragranceCount}`);
     lines.push(`폐기 발생 건수,${kpis.disposalCount}`);
@@ -284,6 +314,11 @@ export default function DailyReportClient(p: Props) {
     for (const l of todayFragranceLots) {
       lines.push([l.productionDate, l.lotNo, `[향] ${l.fragranceName}`,
         l.actualProducedQty, l.worker, l.actualMaterialTotalCost, l.note].map(escapeCsv).join(","));
+    }
+    for (const l of todayUpcycleLots) {
+      lines.push([l.date, l.lotCode, `[업사이클] ${l.itemNo}`,
+        l.actualProducedQty ?? l.completedQty ?? "", l.assignee,
+        l.actualMaterialTotalCost ?? "", l.note].map(escapeCsv).join(","));
     }
     lines.push("");
     lines.push("[부족 재고]");
@@ -382,20 +417,46 @@ export default function DailyReportClient(p: Props) {
 
       {/* ─── KPI cards ──────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <KpiCard label="총 생산량" value={formatNumber(kpis.totalProducedQty)} unit="개" icon={<Factory size={14} />} />
-        <KpiCard label="총 생산 원가" value={formatCurrency(kpis.totalProductionCost)} icon={<Sparkles size={14} />} />
-        <KpiCard label="총 출고 금액" value={formatCurrency(kpis.totalShipmentAmount)} icon={<Package size={14} />} />
+        <KpiCard label="총 생산량" value={formatNumber(kpis.totalProducedQty)} unit="개" icon={<Factory size={14} />}
+          sub={kpis.upcycleProducedQty > 0
+            ? <>기존 {formatNumber(kpis.baseProducedQty)} · <span className="text-emerald-700">업사이클 {formatNumber(kpis.upcycleProducedQty)}</span></>
+            : undefined} />
+        <KpiCard label="총 생산 원가" value={formatCurrency(kpis.totalProductionCost)} icon={<Sparkles size={14} />}
+          sub={kpis.upcycleProductionCost > 0
+            ? <>기존 {formatCurrency(kpis.baseProductionCost)} · <span className="text-emerald-700">업사이클 {formatCurrency(kpis.upcycleProductionCost)}</span></>
+            : undefined} />
+        <KpiCard label="총 출고 금액" value={formatCurrency(kpis.totalShipmentAmount)} icon={<Package size={14} />}
+          sub={kpis.upcycleShipmentAmount > 0
+            ? <>기존 {formatCurrency(kpis.baseShipmentAmount)} · <span className="text-emerald-700">업사이클 {formatCurrency(kpis.upcycleShipmentAmount)}</span></>
+            : undefined} />
         <KpiCard label="부족 재고 개수" value={formatNumber(kpis.lowStockCount)} unit="건" tone={kpis.lowStockCount > 0 ? "warn" : "ok"} icon={<AlertTriangle size={14} />} />
         <KpiCard label="오늘 생산된 향료 수" value={formatNumber(kpis.fragranceCount)} unit="건" icon={<FlaskConical size={14} />} />
         <KpiCard label="폐기 발생 건수" value={formatNumber(kpis.disposalCount)} unit="건" tone={kpis.disposalCount > 0 ? "warn" : "ok"} icon={<Trash2 size={14} />} />
       </div>
 
       {/* ─── [오늘 생산 작업] ────────────────────────────── */}
-      <Section title="오늘 생산 작업" subtitle="품목생산LOT · 향생산LOT" icon={<Factory size={14} />}>
+      <Section title="오늘 생산 작업" subtitle="품목생산LOT · 향생산LOT · 업사이클생산LOT" icon={<Factory size={14} />}>
         <ReportTable head={["시간/날짜","LOT 번호","품목/향","생산수량","작업자","실제 원가","메모"]}>
-          {todayItemLots.length === 0 && todayFragranceLots.length === 0
+          {todayItemLots.length === 0 && todayFragranceLots.length === 0 && todayUpcycleLots.length === 0
             ? <EmptyRow cols={7} text="해당 일자의 생산 작업이 없습니다." />
             : <>
+                {todayUpcycleLots.map((l) => (
+                  <tr key={`ul-${l.id}`} className="bg-emerald-50/30">
+                    <td>{formatDateKst(l.date)}</td>
+                    <td className="font-mono text-xs">{l.lotCode}</td>
+                    <td>
+                      <div>
+                        <span className="text-[10px] px-1 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200 mr-1">업사이클</span>
+                        {l.itemNo}
+                      </div>
+                      <div className="text-[10px] text-ink-500">{l.productType}</div>
+                    </td>
+                    <td className="text-right tabular-nums">{formatNumber(l.actualProducedQty ?? l.completedQty ?? 0)} 개</td>
+                    <td>{l.assignee}</td>
+                    <td className="text-right tabular-nums">{l.actualMaterialTotalCost ? formatCurrency(l.actualMaterialTotalCost) : "—"}</td>
+                    <td className="text-ink-600">{l.note}</td>
+                  </tr>
+                ))}
                 {todayItemLots.map((l) => {
                   const it = p.items.find((i) => i.itemNo === l.itemNo);
                   return (
@@ -459,14 +520,20 @@ export default function DailyReportClient(p: Props) {
 
       {/* ─── [오늘 출고 현황] ────────────────────────────── */}
       <Section title="오늘 출고 현황" subtitle="출고이력" icon={<Package size={14} />}>
-        <ReportTable head={["출고처","품목","수량","담당자","비고"]}>
+        <ReportTable head={["구분","출고처","품목","수량","금액","담당자","비고"]}>
           {todayShipments.length === 0
-            ? <EmptyRow cols={5} text="오늘 출고된 내역이 없습니다." />
+            ? <EmptyRow cols={7} text="오늘 출고된 내역이 없습니다." />
             : todayShipments.map((s) => (
                 <tr key={s.id}>
+                  <td>
+                    {s.line === "업사이클"
+                      ? <span className="text-[10px] px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">업사이클</span>
+                      : <span className="text-[10px] px-1.5 py-0.5 rounded border bg-beige-100 text-ink-600 border-beige-200">기존</span>}
+                  </td>
                   <td className="font-medium">{s.customer}</td>
                   <td>{s.optionName} <span className="text-[10px] text-ink-500">{s.optionCode}</span></td>
                   <td className="text-right tabular-nums">{formatNumber(s.qty)}</td>
+                  <td className="text-right tabular-nums">{formatCurrency(s.qty * (s.unitPrice ?? 0))}</td>
                   <td>{s.assignee}</td>
                   <td className="text-ink-600">{s.note}</td>
                 </tr>
@@ -570,8 +637,8 @@ export default function DailyReportClient(p: Props) {
 
 // ─── Sub-components ───────────────────────────────────────
 function KpiCard({
-  label, value, unit, icon, tone,
-}: { label: string; value: string; unit?: string; icon?: React.ReactNode; tone?: "ok" | "warn" }) {
+  label, value, unit, icon, tone, sub,
+}: { label: string; value: string; unit?: string; icon?: React.ReactNode; tone?: "ok" | "warn"; sub?: React.ReactNode }) {
   const toneCls = tone === "warn" ? "border-amber-200" : "border-border";
   return (
     <div className={`rounded-xl border ${toneCls} bg-bg-panel px-3 py-3 shadow-sm`}>
@@ -581,6 +648,7 @@ function KpiCard({
       <div className="mt-2 text-xl font-semibold tabular-nums text-ink-900 leading-tight">
         {value} {unit && <span className="text-[12px] text-ink-500 font-normal">{unit}</span>}
       </div>
+      {sub && <div className="mt-1 text-[10px] text-ink-500 leading-tight">{sub}</div>}
     </div>
   );
 }
