@@ -188,11 +188,11 @@ export default function UpcycleProductionClient({
   // changes. The input value is `draft.lotCode || lotCodePreview`, so the
   // user always sees a current preview until they type or hit "다시 생성".
   const lotCodePreview = useMemo(
-    () => generateLotCode(inline.itemNo, inline.date, lots),
+    () => generateLotCode(inline.itemNo, inline.date, lots, "UC"),
     [inline.itemNo, inline.date, lots],
   );
   const editingLotCodePreview = useMemo(
-    () => editing ? generateLotCode(editing.itemNo, editing.date, lots) : "",
+    () => editing ? generateLotCode(editing.itemNo, editing.date, lots, "UC") : "",
     [editing, lots],
   );
   function setDraft(updater: EditableLot | ((prev: EditableLot) => EditableLot)) {
@@ -426,7 +426,7 @@ export default function UpcycleProductionClient({
     // Resolve the LOT code at save time so the user sees exactly what gets
     // written. Manual override wins; otherwise fall back to the live preview;
     // otherwise the server still generates one as a last resort.
-    const draftPreview = generateLotCode(draft.itemNo, draft.date, lots);
+    const draftPreview = generateLotCode(draft.itemNo, draft.date, lots, "UC");
     const resolvedLotCode = (draft.lotCode ?? "").trim() || draftPreview;
     const lotPayload = {
       ...draft,

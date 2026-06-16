@@ -108,6 +108,7 @@ export function generateLotCode(
   itemNo: string,
   date: string,
   existingLots: Array<{ itemNo: string; date: string }>,
+  prefix = "LOT",
 ): string {
   const code = String(itemNo ?? "").trim();
   const raw = String(date ?? "").trim();
@@ -118,5 +119,5 @@ export function generateLotCode(
     (l) => l.itemNo === code && (l.date || "").replace(/-/g, "") === ymd,
   );
   const seq = (sameDay.length + 1).toString().padStart(2, "0");
-  return `LOT-${code}-${ymd}-${seq}`;
+  return `${prefix}-${code}-${ymd}-${seq}`;
 }

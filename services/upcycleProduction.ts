@@ -394,7 +394,7 @@ export async function createItemLot(
     // correct even if the client's cached list is one save behind. The old
     // `LOT-{YYMMDD}-{itemNo}-{random}` format is no longer produced anywhere.
     lotCode: (input.lotCode && input.lotCode.trim())
-      || generateLotCode(input.itemNo, input.date, await listItemLots()),
+      || generateLotCode(input.itemNo, input.date, await listItemLots(), "UC"),
     targetQty: input.targetQty,
     completedQty: input.completedQty ?? 0,
     defectQty: input.defectQty ?? 0,
