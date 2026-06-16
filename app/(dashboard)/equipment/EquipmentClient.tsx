@@ -83,7 +83,7 @@ export default function EquipmentClient({ initial }: { initial: Equipment[] }) {
     <div>
       <PageHeader
         title="설비관리"
-        description="공정별 설비/장비 마스터. 등록한 설비는 품목생산의 배합/분산/사출/QC 드롭다운에 활성 상태로 노출됩니다."
+        description="공정별 설비/장비 마스터. 일반 라인(배합/분산/사출/QC)과 업사이클링 선행 공정(입고확인/추출/정제/숙성)을 모두 등록할 수 있습니다."
         actions={
           <button className="btn-primary" onClick={() => setEditing(emptyEquipment())}
             disabled={!canEdit} title={!canEdit ? PERMISSION_TIP : undefined}>

@@ -585,8 +585,16 @@ export interface MaterialTransaction {
 // Backs the equipment dropdowns in 품목생산. Read-only from the production
 // flow — selection writes the chosen string into mixingMachine /
 // dispersionMachine / injectionMachine / qcEquipment as plain text.
-export type EquipmentProcessType = "배합" | "분산" | "사출" | "QC" | "기타";
-export const EQUIPMENT_PROCESS_TYPES: EquipmentProcessType[] = ["배합", "분산", "사출", "QC", "기타"];
+export type EquipmentProcessType =
+  | "배합" | "분산" | "사출" | "QC"
+  // 업사이클링 선행 공정
+  | "입고확인" | "추출" | "정제" | "숙성"
+  | "기타";
+export const EQUIPMENT_PROCESS_TYPES: EquipmentProcessType[] = [
+  "배합", "분산", "사출", "QC",
+  "입고확인", "추출", "정제", "숙성",
+  "기타",
+];
 
 export type EquipmentStatus = "활성" | "비활성";
 export const EQUIPMENT_STATUSES: EquipmentStatus[] = ["활성", "비활성"];

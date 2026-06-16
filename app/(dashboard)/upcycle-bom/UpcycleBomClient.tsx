@@ -9,6 +9,7 @@ import type { Item, ItemBomLine, Material, MaterialCategory } from "@/types";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { useCanEdit, PERMISSION_TIP } from "@/components/useRole";
 import { usageUnitFor, unitConsistencyWarning } from "@/lib/units";
+import { categoryBadgeClass } from "@/lib/categoryColor";
 import { useResourceSave } from "@/hooks/useResourceSave";
 import SaveErrorPanel from "@/components/SaveErrorPanel";
 
@@ -474,7 +475,7 @@ export default function UpcycleBomClient({
                           </select>
                         </TD>
                         <TD>
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-bg-subtle text-ink-700 border border-border">
+                          <span className={`inline-block whitespace-nowrap text-xs px-1.5 py-0.5 rounded border ${categoryBadgeClass(l.materialCategory)}`}>
                             {l.materialCategory}
                           </span>
                         </TD>
@@ -485,13 +486,15 @@ export default function UpcycleBomClient({
                             onBlur={() => persistLine(l)} />
                         </TD>
                         <TD>
-                          <div>{l.unit}</div>
-                          {(() => {
-                            const warn = unitConsistencyWarning(l.materialCategory, l.unit);
-                            return warn ? (
-                              <div className="text-[10px] text-amber-700 mt-0.5" title={warn}>⚠ {warn}</div>
-                            ) : null;
-                          })()}
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <span>{l.unit}</span>
+                            {(() => {
+                              const warn = unitConsistencyWarning(l.materialCategory, l.unit);
+                              return warn ? (
+                                <span className="text-[10px] text-red-600 font-medium cursor-help" title={warn}>⚠ ml 권장</span>
+                              ) : null;
+                            })()}
+                          </div>
                         </TD>
                         <TD>
                           <input className="input" value={l.note}
