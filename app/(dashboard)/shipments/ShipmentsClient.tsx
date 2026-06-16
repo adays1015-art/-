@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import Modal from "@/components/Modal";
 import { Table, THead, TBody, TR, TH, TD, Empty } from "@/components/Table";
-import type { Client, FinishedSet, Shipment } from "@/types";
+import type { Client, FinishedSet, Item, Shipment } from "@/types";
 import { formatDate, formatNumber, todayISO } from "@/lib/utils";
 import { useCanEdit, PERMISSION_TIP } from "@/components/useRole";
 import { useResourceSave } from "@/hooks/useResourceSave";
@@ -20,13 +20,13 @@ function emptyShipment(): EditableShipment {
     optionName: "", optionCode: "", qty: 1,
     customer: "", assignee: "", note: "",
     clientCode: "", clientName: "", contactName: "", country: "", region: "",
-    unitPrice: 0, commissionRate: 0,
+    unitPrice: 0, commissionRate: 0, line: "기존",
   };
 }
 
 export default function ShipmentsClient({
-  initial, finished, clients = [],
-}: { initial: Shipment[]; finished: FinishedSet[]; clients?: Client[] }) {
+  initial, finished, clients = [], upcycleItems = [],
+}: { initial: Shipment[]; finished: FinishedSet[]; clients?: Client[]; upcycleItems?: Item[] }) {
   const router = useRouter();
   const [items, setItems] = useState<Shipment[]>(initial);
   const [visibleCount, setVisibleCount] = useState<number>(50);
@@ -36,10 +36,18 @@ export default function ShipmentsClient({
   const [warning, setWarning] = useState<string | null>(null);
   const { save, saving, error: saveError, clearError } = useResourceSave("/api/shipments");
 
+  const isUpcycle = editing?.line === "업사이클";
+
+  // 선택된 재고 표시용. 기존=완제품세트 가용, 업사이클=품목 stock.
   const selectedStock = useMemo(() => {
-    if (!editing?.optionCode) return null;
+    if (!editing?.optionCode || editing.line === "업사이클") return null;
     return finished.find((f) => f.optionCode === editing.optionCode) ?? null;
   }, [editing, finished]);
+
+  const selectedUpcycle = useMemo(() => {
+    if (!editing?.optionCode || editing.line !== "업사이클") return null;
+    return upcycleItems.find((u) => u.itemNo === editing.optionCode) ?? null;
+  }, [editing, upcycleItems]);
 
   async function onSave() {
     if (!editing) return;
@@ -58,7 +66,7 @@ export default function ShipmentsClient({
     <div>
       <PageHeader
         title="출고 관리"
-        description="완제품 세트 단위로 출고를 등록합니다. 출고 시 완제품 세트 재고만 차감되며, 원료나 품목 재고는 영향받지 않습니다."
+        description="완제품 세트 또는 업사이클 제품 단위로 출고를 등록합니다. 기존은 완제품 세트 재고, 업사이클은 업사이클 품목 재고에서 차감됩니다."
         actions={
           <button className="btn-primary" onClick={() => { setEditing(emptyShipment()); setWarning(null); }}
             disabled={!canEditShip} title={!canEditShip ? PERMISSION_TIP : undefined}
@@ -69,7 +77,7 @@ export default function ShipmentsClient({
       <Table>
         <THead>
           <TR>
-            <TH>출고일</TH><TH>제품유형</TH><TH>세트유형</TH><TH>옵션명</TH><TH>옵션코드</TH>
+            <TH>출고일</TH><TH>구분</TH><TH>제품유형</TH><TH>세트유형</TH><TH>옵션명</TH><TH>옵션코드</TH>
             <TH className="text-right">출고 수량</TH><TH>거래처</TH><TH>담당자</TH><TH>메모</TH>
           </TR>
         </THead>
@@ -78,8 +86,13 @@ export default function ShipmentsClient({
             visibleItems.map((s) => (
               <TR key={s.id}>
                 <TD>{formatDate(s.date)}</TD>
+                <TD>
+                  {s.line === "업사이클"
+                    ? <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">업사이클</span>
+                    : <span className="text-xs px-1.5 py-0.5 rounded bg-beige-100 text-ink-700 border border-beige-200">기존</span>}
+                </TD>
                 <TD><span className="text-xs px-1.5 py-0.5 rounded bg-beige-100 text-ink-800 border border-beige-200">{s.productType}</span></TD>
-                <TD>{s.setSize}</TD>
+                <TD>{s.line === "업사이클" ? <span className="text-ink-400">—</span> : s.setSize}</TD>
                 <TD className="font-medium text-ink-900">{s.optionName}</TD>
                 <TD className="font-mono text-xs">{s.optionCode}</TD>
                 <TD className="text-right tabular-nums font-semibold text-red-600">-{formatNumber(s.qty)}</TD>
@@ -120,37 +133,89 @@ export default function ShipmentsClient({
         {editing && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2"><label className="label">구분</label>
+                <div className="flex gap-2">
+                  {(["기존", "업사이클"] as const).map((ln) => (
+                    <button key={ln} type="button"
+                      className={`flex-1 px-3 py-1.5 rounded-md text-sm border transition ${
+                        (editing.line ?? "기존") === ln
+                          ? (ln === "업사이클"
+                              ? "bg-emerald-600 text-white border-emerald-600"
+                              : "bg-ink-800 text-white border-ink-800")
+                          : "bg-white text-ink-600 border-beige-200 hover:bg-beige-50"}`}
+                      onClick={() => setEditing({
+                        ...editing, line: ln,
+                        // 라인 변경 시 선택 초기화 (코드 의미가 다름)
+                        optionCode: "", optionName: "",
+                      })}>
+                      {ln === "업사이클" ? "업사이클 제품" : "완제품 세트 (기존)"}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div><label className="label">출고일</label>
                 <input className="input" type="date" value={editing.date}
                   onChange={(e) => setEditing({ ...editing, date: e.target.value })} /></div>
               <div><label className="label">담당자</label>
                 <input className="input" value={editing.assignee}
                   onChange={(e) => setEditing({ ...editing, assignee: e.target.value })} /></div>
-              <div className="col-span-2"><label className="label">완제품 옵션</label>
-                <select className="input"
-                  value={editing.optionCode}
-                  onChange={(e) => {
-                    const f = finished.find((x) => x.optionCode === e.target.value);
-                    if (!f) {
-                      setEditing({ ...editing, optionCode: e.target.value });
-                      return;
-                    }
-                    setEditing({
-                      ...editing,
-                      optionCode: f.optionCode,
-                      optionName: f.optionName,
-                      productType: f.productType,
-                      setSize: f.setSize,
-                    });
-                  }}>
-                  <option value="">선택...</option>
-                  {finished.map((f) => (
-                    <option key={f.id} value={f.optionCode}>
-                      [{f.productType}] {f.setSize} · {f.optionName} ({f.optionCode}) — 가용 {f.available}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isUpcycle ? (
+                <div className="col-span-2"><label className="label">업사이클 제품</label>
+                  <select className="input"
+                    value={editing.optionCode}
+                    onChange={(e) => {
+                      const u = upcycleItems.find((x) => x.itemNo === e.target.value);
+                      if (!u) {
+                        setEditing({ ...editing, optionCode: e.target.value });
+                        return;
+                      }
+                      setEditing({
+                        ...editing,
+                        optionCode: u.itemNo,
+                        optionName: u.colorName,
+                        productType: u.productType,
+                      });
+                    }}>
+                    <option value="">선택...</option>
+                    {upcycleItems.map((u) => (
+                      <option key={u.id} value={u.itemNo}>
+                        {u.colorName} ({u.itemNo}) — 재고 {formatNumber(u.stock)} {u.unit}
+                      </option>
+                    ))}
+                  </select>
+                  {upcycleItems.length === 0 && (
+                    <div className="text-[11px] text-ink-500 mt-1">
+                      등록된 업사이클 품목이 없습니다. <a href="/upcycle-items" className="underline">업사이클 품목</a>에서 먼저 등록하세요.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="col-span-2"><label className="label">완제품 옵션</label>
+                  <select className="input"
+                    value={editing.optionCode}
+                    onChange={(e) => {
+                      const f = finished.find((x) => x.optionCode === e.target.value);
+                      if (!f) {
+                        setEditing({ ...editing, optionCode: e.target.value });
+                        return;
+                      }
+                      setEditing({
+                        ...editing,
+                        optionCode: f.optionCode,
+                        optionName: f.optionName,
+                        productType: f.productType,
+                        setSize: f.setSize,
+                      });
+                    }}>
+                    <option value="">선택...</option>
+                    {finished.map((f) => (
+                      <option key={f.id} value={f.optionCode}>
+                        [{f.productType}] {f.setSize} · {f.optionName} ({f.optionCode}) — 가용 {f.available}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div><label className="label">출고 수량</label>
                 <input className="input" type="number" value={editing.qty}
                   onChange={(e) => setEditing({ ...editing, qty: Number(e.target.value) })} /></div>
@@ -252,6 +317,18 @@ export default function ShipmentsClient({
                 </div>
               );
             })()}
+
+            {selectedUpcycle && (
+              <div className="panel panel-pad text-sm text-ink-700">
+                선택된 업사이클 품목 재고 —{" "}
+                <b className={selectedUpcycle.stock < editing.qty ? "text-red-700" : "text-emerald-700"}>
+                  {formatNumber(selectedUpcycle.stock)}
+                </b> {selectedUpcycle.unit}
+                {selectedUpcycle.stock < editing.qty && (
+                  <span className="ml-2 text-red-700">⚠️ 출고 수량이 재고를 초과합니다.</span>
+                )}
+              </div>
+            )}
 
             {selectedStock && (
               <div className="panel panel-pad text-sm text-ink-700">

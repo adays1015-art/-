@@ -359,7 +359,14 @@ export interface Shipment {
   // 출고 저장 시점의 단가·수수료 스냅샷 (거래처 마스터 변경에도 보존)
   unitPrice?: number;
   commissionRate?: number;
+  // ─── 출고 라인 구분 (사용자가 시트에 `line` 컬럼 추가 후 활성) ──
+  //   "기존"     → 완제품 세트 재고(finishedSets)를 optionCode 로 차감 (기존 동작)
+  //   "업사이클" → 업사이클 품목 재고(upcycleItems)를 optionCode(=itemNo) 로 차감
+  // 컬럼이 없으면 reader 가 "기존" 으로 처리 → 기존 데이터/동작 그대로 유지.
+  line?: ShipmentLine;
 }
+
+export type ShipmentLine = "기존" | "업사이클";
 
 // ─── Work history ───────────────────────────────────────────
 export type WorkLogType =

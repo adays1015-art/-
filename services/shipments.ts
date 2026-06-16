@@ -1,4 +1,4 @@
-﻿import type { ProductType, SetSize, Shipment } from "@/types";
+﻿import type { ProductType, SetSize, Shipment, ShipmentLine } from "@/types";
 import {
   appendRow,
   useSheets,
@@ -8,6 +8,7 @@ import {
 import { getStore } from "./store";
 import { genId } from "@/lib/utils";
 import { shipFinishedSet } from "./finishedSets";
+import { consumeItems as consumeUpcycleItems } from "./upcycleItems";
 import { logWork } from "./history";
 
 const TAB = SHEET_TABS.shipments;
@@ -19,7 +20,7 @@ export const SHIPMENT_HEADER = [
   "id", "date", "productType", "setSize", "optionName", "optionCode",
   "qty", "customer", "assignee", "note",
   "clientCode", "clientName", "contactName", "country", "region",
-  "unitPrice", "commissionRate",
+  "unitPrice", "commissionRate", "line",
 ];
 
 function toRow(s: Shipment): (string | number | boolean)[] {
@@ -28,7 +29,7 @@ function toRow(s: Shipment): (string | number | boolean)[] {
     s.qty, s.customer, s.assignee, s.note,
     s.clientCode ?? "", s.clientName ?? "", s.contactName ?? "",
     s.country ?? "", s.region ?? "",
-    s.unitPrice ?? 0, s.commissionRate ?? 0,
+    s.unitPrice ?? 0, s.commissionRate ?? 0, s.line ?? "기존",
   ];
 }
 
@@ -54,6 +55,7 @@ function fromRow(r: Record<string, string>): Shipment {
     region: r.region ?? "",
     unitPrice: Number(r.unitPrice) || 0,
     commissionRate: Number(r.commissionRate) || 0,
+    line: (r.line as ShipmentLine) || "기존",
   };
 }
 
@@ -70,22 +72,33 @@ export async function listShipments(): Promise<Shipment[]> {
  * Does NOT touch raw materials or individual item stock.
  */
 export async function createShipment(input: Omit<Shipment, "id">): Promise<{ shipment: Shipment; warning?: string }> {
-  const ship = await shipFinishedSet(input.optionCode, input.qty);
+  const line: ShipmentLine = input.line ?? "기존";
   let warning: string | undefined;
-  if (!ship.ok) {
-    warning = ship.available !== undefined
-      ? `완제품 세트 재고 부족 — 가용 ${ship.available}세트`
-      : `해당 옵션코드의 완제품 재고가 없습니다`;
+
+  if (line === "업사이클") {
+    // 업사이클 제품: 업사이클 품목 재고(optionCode = itemNo)를 차감.
+    const res = await consumeUpcycleItems([{ itemNo: input.optionCode, amount: input.qty }]);
+    if (!res.ok) {
+      warning = `업사이클 품목 재고 부족 — ${input.optionCode}`;
+    }
+  } else {
+    // 기존: 완제품 세트 재고를 optionCode 로 차감.
+    const ship = await shipFinishedSet(input.optionCode, input.qty);
+    if (!ship.ok) {
+      warning = ship.available !== undefined
+        ? `완제품 세트 재고 부족 — 가용 ${ship.available}세트`
+        : `해당 옵션코드의 완제품 재고가 없습니다`;
+    }
   }
 
-  const s: Shipment = { ...input, id: genId("SH") };
+  const s: Shipment = { ...input, line, id: genId("SH") };
   if ((await useSheets())) await appendRow(TAB, toRow(s), SHIPMENT_HEADER);
   else getStore().shipments.unshift(s);
 
   await logWork({
     type: "출고",
-    target: `${s.productType} ${s.setSize} ${s.optionName}`,
-    change: `-${s.qty}세트 (${s.customer})`,
+    target: `${line === "업사이클" ? "[업사이클] " : ""}${s.productType} ${s.setSize} ${s.optionName}`,
+    change: `-${s.qty}${line === "업사이클" ? "개" : "세트"} (${s.customer})`,
     assignee: s.assignee,
     note: warning ?? s.note,
   });
