@@ -572,7 +572,8 @@ export function computeItemCost(args: {
   for (const line of lines) {
     const m = args.materials.find((x) => x.id === line.materialId);
     if (!m) continue;
-    material += line.amountPerUnit * (m.unitPrice || 0);
+    // 단위당 단가(unitCost) 우선 — unitPrice 는 이제 구입단가이므로 직접 쓰지 않음.
+    material += line.amountPerUnit * resolveMaterialUnitCost(m);
   }
   const laborItem = args.costItems.find(
     (c) => c.name.includes(args.item.productType) && c.basis.includes("품목 생산"),

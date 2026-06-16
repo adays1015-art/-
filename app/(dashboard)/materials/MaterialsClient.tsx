@@ -12,6 +12,7 @@ import type {
   ProductionExecutionMaterial, FragranceExecutionMaterial,
 } from "@/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { categoryBadgeClass } from "@/lib/categoryColor";
 import { useCanEdit, PERMISSION_TIP } from "@/components/useRole";
 import { useResourceSave } from "@/hooks/useResourceSave";
 import SaveErrorPanel from "@/components/SaveErrorPanel";
@@ -288,7 +289,7 @@ export default function MaterialsClient({
             </TH>
             <TH className="text-right">안전재고</TH>
             <TH>단위</TH>
-            <TH>공급처</TH><TH className="text-right">단가</TH>
+            <TH>공급처</TH><TH className="text-right">구입단가 / 단위당</TH>
             <TH>입고일</TH><TH>MSDS</TH><TH>비고</TH>
             <TH>상태</TH><TH></TH>
           </TR>
@@ -309,7 +310,7 @@ export default function MaterialsClient({
                       {m.materialName || m.name}
                     </button>
                   </TD>
-                  <TD><span className="text-xs px-1.5 py-0.5 rounded bg-beige-100 text-ink-800 border border-beige-200">{m.category}</span></TD>
+                  <TD><span className={`text-xs px-1.5 py-0.5 rounded border ${categoryBadgeClass(m.category)}`}>{m.category}</span></TD>
                   <TD className="text-right tabular-nums">
                     <span className={low ? "text-amber-700 font-semibold" : ""}>{formatNumber(m.stock)} {m.unit}</span>
                     {low && <AlertTriangle size={12} className="inline ml-1 text-amber-600" />}
@@ -325,7 +326,28 @@ export default function MaterialsClient({
                     })()}
                   </TD>
                   <TD>{m.supplier}</TD>
-                  <TD className="text-right tabular-nums">{formatCurrency(m.unitPrice)}</TD>
+                  <TD className="text-right tabular-nums">
+                    {(() => {
+                      const cap = Number(m.capacity) || 0;
+                      const useUnit = usageUnitFor(m) || m.unit || "";
+                      const per = (m.unitCost && m.unitCost > 0)
+                        ? m.unitCost
+                        : (cap > 0 ? Math.round(m.unitPrice / cap) : null);
+                      const costUnit = m.costUnit || useUnit;
+                      const showPer = per != null && (cap > 0 || (!!m.unitCost && m.unitCost !== m.unitPrice));
+                      return (
+                        <>
+                          <div className="text-ink-900">
+                            {formatCurrency(m.unitPrice)}
+                            {cap > 0 && <span className="text-[10px] text-ink-400"> /{formatNumber(cap)}{m.unit}</span>}
+                          </div>
+                          {showPer && (
+                            <div className="text-[11px] text-ink-500">{formatCurrency(per as number)}/{costUnit}</div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </TD>
                   <TD>{formatDate(m.inboundDate)}</TD>
                   <TD>{m.msds ? "✓" : "-"}</TD>
                   <TD className="text-ink-600 max-w-[200px] truncate">{m.note}</TD>

@@ -61,12 +61,22 @@ function fromRow(r: Record<string, string>): Material {
   const materialName = (r.materialName ?? r.name ?? "").trim();
   const materialCode = (r.materialCode ?? r.id ?? "").trim();
   const id = synthMaterialId(r, materialName);
-  // Read unitCost from the spec column, fall back to legacy unitPrice.
+  // unitPrice = 구입 당시 단가(구입단가), unitCost = 사용단위당 단가(예: 원/g).
+  // 과거에는 unitCost 가 있으면 unitPrice 를 그것으로 덮어써서 "구입단가"가
+  // 화면에서 사라지고(직원 혼동) 수정 저장 시 시트의 구입단가까지 손상되는
+  // 문제가 있었음 → 이제 구입단가를 그대로 보존한다.
   const unitCostVal = Number(r.unitCost);
   const unitPriceVal = Number(r.unitPrice);
-  const resolvedUnitPrice = Number.isFinite(unitCostVal) && unitCostVal > 0
-    ? unitCostVal
-    : (Number.isFinite(unitPriceVal) ? unitPriceVal : 0);
+  const purchasePrice = Number.isFinite(unitPriceVal) ? unitPriceVal : 0;
+  const capacityVal = Number(r.capacity);
+  // 사용단위당 단가: unitCost 컬럼이 있으면 사용, 없으면 (구입단가 / 구입용량)
+  // 으로 보정. 둘 다 없는 레거시 행은 undefined → resolveMaterialUnitCost 가
+  // 구입단가로 폴백(과거엔 구입단가가 곧 단위당 단가였음).
+  let unitCostResolved: number | undefined =
+    Number.isFinite(unitCostVal) && unitCostVal > 0 ? unitCostVal : undefined;
+  if (unitCostResolved === undefined && Number.isFinite(capacityVal) && capacityVal > 0 && purchasePrice > 0) {
+    unitCostResolved = Math.round(purchasePrice / capacityVal);
+  }
   return {
     id,
     materialCode,
@@ -77,8 +87,8 @@ function fromRow(r: Record<string, string>): Material {
     unit: r.unit ?? "",
     safetyStock: Number(r.safetyStock) || 0,
     supplier: r.supplier ?? "",
-    unitPrice: resolvedUnitPrice,
-    unitCost: Number.isFinite(unitCostVal) ? unitCostVal : undefined,
+    unitPrice: purchasePrice,
+    unitCost: unitCostResolved,
     costUnit: r.costUnit ?? r.unit ?? "",
     // Optional fallback unit-cost columns (read-only).
     purchaseUnitCost: Number.isFinite(Number(r.purchaseUnitCost)) ? Number(r.purchaseUnitCost) : undefined,
