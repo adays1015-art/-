@@ -169,6 +169,10 @@ async function consumeFromExplicit(
   }
   const { listMaterials } = await import("./upcycleMaterials");
   const mats = await listMaterials();
+  // 업사이클 BOM은 기존 원료재고도 구성품으로 가질 수 있으므로, 업사이클
+  // 원료에서 못 찾은 코드는 기존 원료재고에서도 찾아 차감한다.
+  const { listMaterials: listMainMaterials } = await import("./materials");
+  const mainMats = await listMainMaterials();
 
   // ─── Two distinct failure modes, tracked separately ───────
   // 1) "Unresolved" — the BOM-stored materialCode has no matching row in
@@ -186,14 +190,18 @@ async function consumeFromExplicit(
   // resolvedUses.amount is in the MATERIAL'S STORAGE UNIT (post-conversion),
   // so consumeMaterials' stock comparison stays meaningful regardless of
   // whether BOM/usage units differ from purchase units.
-  const resolvedUses: { materialId: string; amount: number; code: string; name: string; fromUnit: string; toUnit: string }[] = [];
+  const resolvedUses: { materialId: string; amount: number; code: string; name: string; fromUnit: string; toUnit: string; inv: "업사이클" | "기존" }[] = [];
   for (const m of actualMaterials) {
     const code = String(m.materialCode || "").trim();
     if (!code) continue;
     if (m.actualQty === 0) continue;
-    const found = mats.find(
-      (x) => x.id === code || x.materialCode === code,
-    );
+    // 업사이클 원료 우선, 없으면 기존 원료재고에서 찾는다.
+    let inv: "업사이클" | "기존" = "업사이클";
+    let found = mats.find((x) => x.id === code || x.materialCode === code);
+    if (!found) {
+      found = mainMats.find((x) => x.id === code || x.materialCode === code);
+      if (found) inv = "기존";
+    }
     if (!found) {
       unresolvedCodes.push(code);
       continue;
@@ -225,6 +233,7 @@ async function consumeFromExplicit(
       name: found.materialName || found.name || code,
       fromUnit: usageUnit,
       toUnit: stockUnit,
+      inv,
     });
   }
   console.log("[deduct] resolution", {
@@ -252,12 +261,23 @@ async function consumeFromExplicit(
     return note;
   }
 
-  console.log("[deduct] calling consumeMaterials",
-    resolvedUses.map(({ materialId, amount }) => ({ materialId, amount })));
-  const result = await consumeMaterials(
-    resolvedUses.map(({ materialId, amount }) => ({ materialId, amount })),
-  );
-  console.log("[deduct] consumeMaterials result", result);
+  // 업사이클 원료재고 / 기존 원료재고를 각각의 consumeMaterials 로 차감.
+  const upcycleUses = resolvedUses.filter((u) => u.inv === "업사이클");
+  const mainUses = resolvedUses.filter((u) => u.inv === "기존");
+  console.log("[deduct] calling consumeMaterials", {
+    upcycle: upcycleUses.map(({ materialId, amount }) => ({ materialId, amount })),
+    main: mainUses.map(({ materialId, amount }) => ({ materialId, amount })),
+  });
+  const { consumeMaterials: consumeMainMaterials } = await import("./materials");
+  const [upcycleResult, mainResult] = await Promise.all([
+    consumeMaterials(upcycleUses.map(({ materialId, amount }) => ({ materialId, amount }))),
+    consumeMainMaterials(mainUses.map(({ materialId, amount }) => ({ materialId, amount }))),
+  ]);
+  const result = {
+    ok: upcycleResult.ok && mainResult.ok,
+    missing: [...upcycleResult.missing, ...mainResult.missing],
+  };
+  console.log("[deduct] consumeMaterials result", { upcycleResult, mainResult, result });
 
   // Compose a single warning that distinguishes the failure modes.
   const parts: string[] = [];
@@ -274,7 +294,7 @@ async function consumeFromExplicit(
     // (which the user actually sees in BOM) for a friendlier message.
     const missingCodes = result.missing.map((id) => {
       const r = resolvedUses.find((u) => u.materialId === id);
-      const mat = mats.find((x) => x.id === id);
+      const mat = mats.find((x) => x.id === id) || mainMats.find((x) => x.id === id);
       return r?.code || mat?.materialCode || id;
     });
     parts.push(`원료 재고 부족 — ${missingCodes.join(", ")} (LOT은 생성됨, 차감 안 됨)`);
@@ -361,9 +381,13 @@ async function reconcileMaterials(
   // for the next edit's baseline. unitCost is pulled from 원료재고.
   const { listMaterials } = await import("./upcycleMaterials");
   const mats = await listMaterials();
+  // 기존 원료재고도 BOM 구성품일 수 있으므로 단가 조회 시 함께 검색.
+  const { listMaterials: listMainMaterials } = await import("./materials");
+  const mainMats = await listMainMaterials();
   await appendExecutionMaterials(
     deltas.map((d) => {
-      const found = mats.find((x) => x.id === d.materialCode || x.materialCode === d.materialCode);
+      const found = mats.find((x) => x.id === d.materialCode || x.materialCode === d.materialCode)
+        || mainMats.find((x) => x.id === d.materialCode || x.materialCode === d.materialCode);
       const unitCost = found?.unitCost ?? found?.unitPrice ?? 0;
       return {
         lotId: lot.id,

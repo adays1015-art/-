@@ -262,7 +262,7 @@ export default function UpcycleBomClient({
     <div>
       <PageHeader
         title="업사이클 BOM"
-        description="업사이클 품목별 자재명세서. 업사이클·기존 원료재고를 함께 선택할 수 있습니다. ※ 생산 시 실투입 차감은 업사이클 원료재고에서만 이루어집니다(기존 원료는 레시피/원가 참고용)."
+        description="업사이클 품목별 자재명세서. 업사이클·기존 원료재고를 함께 선택할 수 있으며, 생산 시 각 원료의 출처 재고(업사이클/기존)에서 실투입량만큼 자동 차감됩니다."
       />
 
       <div className="grid grid-cols-12 gap-4">
