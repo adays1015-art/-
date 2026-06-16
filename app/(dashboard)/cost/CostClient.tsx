@@ -27,10 +27,13 @@ function emptyCost(): CostItem {
 }
 
 export default function CostClient({
-  initial, initialCalculations, items, bom, materials, setOptions, setComposition,
+  initial, initialCalculations,
+  items: itemsMain, bom: bomMain, materials: materialsMain,
+  setOptions, setComposition,
   setBom = [],
-  itemLots, executionMaterials,
+  itemLots: itemLotsMain, executionMaterials: execMain,
   fragranceLots = [], fragranceExec = [],
+  upcycleItems = [], upcycleBom = [], upcycleLots = [], upcycleExec = [], upcycleMaterials = [],
 }: {
   initial: CostItem[];
   initialCalculations: CostCalculation[];
@@ -44,7 +47,22 @@ export default function CostClient({
   executionMaterials: ProductionExecutionMaterial[];
   fragranceLots?: FragranceLot[];
   fragranceExec?: FragranceExecutionMaterial[];
+  upcycleItems?: Item[];
+  upcycleBom?: ItemBomLine[];
+  upcycleLots?: ItemLot[];
+  upcycleExec?: ProductionExecutionMaterial[];
+  upcycleMaterials?: Material[];
 }) {
+  // 라인 토글 — 일반 품목 / 업사이클 품목. 업사이클일 때 품목·BOM·LOT·투입원료·
+  // 원료(업사이클+기존 병합) 배열을 통째로 스왑하면 동일 계산기가 그대로 동작.
+  const [costLine, setCostLine] = useState<"일반" | "업사이클">("일반");
+  const isUpcycleCost = costLine === "업사이클";
+  const items = isUpcycleCost ? upcycleItems : itemsMain;
+  const bom = isUpcycleCost ? upcycleBom : bomMain;
+  const itemLots = isUpcycleCost ? upcycleLots : itemLotsMain;
+  const executionMaterials = isUpcycleCost ? upcycleExec : execMain;
+  const materials = isUpcycleCost ? upcycleMaterials : materialsMain;
+
   const [costList, setCostList] = useState<CostItem[]>(initial);
   const canEditCost = useCanEdit("cost");
   const [drafts, setDrafts] = useState<Record<string, CostItem>>(
@@ -434,6 +452,20 @@ export default function CostClient({
       <PageHeader
         title="원가 계산"
         description="품목을 선택해서 1개 원가 · 재고 금액 · LOT 이력을 조회합니다. 세트 원가는 별도 계산기."
+        actions={
+          <div className="flex gap-1 rounded-lg border border-border bg-bg-panel p-0.5">
+            {(["일반", "업사이클"] as const).map((ln) => (
+              <button key={ln} type="button"
+                className={`px-3 py-1.5 rounded-md text-sm transition ${
+                  costLine === ln
+                    ? (ln === "업사이클" ? "bg-emerald-600 text-white" : "bg-ink-900 text-white")
+                    : "text-ink-600 hover:bg-bg-subtle"}`}
+                onClick={() => { setCostLine(ln); setCalcItemNo(""); }}>
+                {ln === "업사이클" ? "업사이클 품목" : "일반 품목"}
+              </button>
+            ))}
+          </div>
+        }
       />
 
       {/* ─── 조립 BOM (세트BOM) 패널 — 원가계산 화면에서 숨김 ────
