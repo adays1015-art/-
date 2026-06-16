@@ -1505,7 +1505,11 @@ function ProcessTrackingPanel({
   value, onChange, defaultInjectionDate, equipment = [],
 }: {
   value: Pick<ItemLot,
-    "mixingDate" | "mixingWorker" | "mixingMachine"
+    "intakeDate" | "intakeWorker"
+    | "extractionDate" | "extractionWorker"
+    | "refiningDate" | "refiningWorker"
+    | "agingDate" | "agingWorker"
+    | "mixingDate" | "mixingWorker" | "mixingMachine"
     | "dispersionDate" | "dispersionWorker" | "dispersionMachine"
     | "injectionDate" | "injectionWorker" | "injectionMachine"
     | "qcDate" | "qcWorker" | "qcEquipment">;
@@ -1529,7 +1533,41 @@ function ProcessTrackingPanel({
 
   const productionWorkers = getProductionWorkers();
   const qcWorkers = getQcWorkers();
-  const steps = [
+  type ProcKey =
+    | "intakeDate" | "intakeWorker" | "extractionDate" | "extractionWorker"
+    | "refiningDate" | "refiningWorker" | "agingDate" | "agingWorker"
+    | "mixingDate" | "mixingWorker" | "mixingMachine"
+    | "dispersionDate" | "dispersionWorker" | "dispersionMachine"
+    | "injectionDate" | "injectionWorker" | "injectionMachine"
+    | "qcDate" | "qcWorker" | "qcEquipment";
+  const steps: Array<{
+    key: string; processKey: string;
+    dateKey: ProcKey; workerKey: ProcKey;
+    machineKey?: ProcKey; machineLabel?: string;
+    workerOptions: string[]; tone: string;
+  }> = [
+    // ─── 윗줄: 업사이클 선행 공정 (설비 칸 없음) ───
+    {
+      key: "입고확인", processKey: "입고확인", dateKey: "intakeDate" as const,
+      workerKey: "intakeWorker" as const, workerOptions: productionWorkers,
+      tone: "bg-stone-100 text-stone-700 border-stone-300",
+    },
+    {
+      key: "추출", processKey: "추출", dateKey: "extractionDate" as const,
+      workerKey: "extractionWorker" as const, workerOptions: productionWorkers,
+      tone: "bg-rose-50 text-rose-800 border-rose-200",
+    },
+    {
+      key: "정제", processKey: "정제", dateKey: "refiningDate" as const,
+      workerKey: "refiningWorker" as const, workerOptions: productionWorkers,
+      tone: "bg-teal-50 text-teal-800 border-teal-200",
+    },
+    {
+      key: "숙성", processKey: "숙성", dateKey: "agingDate" as const,
+      workerKey: "agingWorker" as const, workerOptions: productionWorkers,
+      tone: "bg-indigo-50 text-indigo-800 border-indigo-200",
+    },
+    // ─── 아랫줄: 기존 공정 ───
     {
       key: "배합", processKey: "배합", dateKey: "mixingDate" as const,
       workerKey: "mixingWorker" as const, machineKey: "mixingMachine" as const,
@@ -1557,7 +1595,7 @@ function ProcessTrackingPanel({
   ];
   return (
     <div className="rounded-md border border-border bg-bg-subtle/40 p-3">
-      <div className="text-xs font-semibold text-ink-800 mb-2">공정 추적 <span className="text-[10px] text-ink-500 font-normal">— 배합 · 분산 · 사출 · QC (선택 입력 · 재고/원가에는 영향 없음)</span></div>
+      <div className="text-xs font-semibold text-ink-800 mb-2">공정 추적 <span className="text-[10px] text-ink-500 font-normal">— 윗줄 입고확인·추출·정제·숙성 / 아랫줄 배합·분산·사출·QC (선택 입력 · 재고/원가에는 영향 없음)</span></div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         {steps.map((s) => {
           const listId = `equip-${s.machineKey}`;
@@ -1601,12 +1639,16 @@ function ProcessTrackingPanel({
                     </select>
                   );
                 })()}
-                <input className="input" placeholder={s.machineLabel} list={listId}
-                  value={(value[s.machineKey] ?? "")}
-                  onChange={(e) => onChange({ [s.machineKey]: e.target.value } as Partial<ItemLot>)} />
-                <datalist id={listId}>
-                  {options.map((opt) => <option key={opt} value={opt} />)}
-                </datalist>
+                {s.machineKey && (
+                  <>
+                    <input className="input" placeholder={s.machineLabel} list={listId}
+                      value={(value[s.machineKey] ?? "") as string}
+                      onChange={(e) => onChange({ [s.machineKey as string]: e.target.value } as Partial<ItemLot>)} />
+                    <datalist id={listId}>
+                      {options.map((opt) => <option key={opt} value={opt} />)}
+                    </datalist>
+                  </>
+                )}
               </div>
             </div>
           );
