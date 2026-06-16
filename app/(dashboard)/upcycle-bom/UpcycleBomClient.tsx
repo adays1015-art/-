@@ -60,7 +60,7 @@ export default function UpcycleBomClient({
     setTplError(null);
     setTplResult(null);
     try {
-      const res = await fetch("/api/bom-template/apply", {
+      const res = await fetch("/api/upcycle-bom/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemNo: selectedItemNo, templateName: tplName, mode: tplMode }),

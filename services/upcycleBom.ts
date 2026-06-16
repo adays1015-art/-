@@ -131,7 +131,7 @@ export async function applyTemplateToItem(args: {
       warning = "Google Sheets 모드에서는 기존 BOM 행을 자동 삭제할 수 없어 '기존 유지 + 추가'로 동작합니다. 필요한 행은 시트에서 직접 삭제하세요.";
     } else {
       const store = getStore();
-      store.bom = store.bom.filter((b) => b.itemNo !== args.itemNo);
+      store.upcycleBom = store.upcycleBom.filter((b) => b.itemNo !== args.itemNo);
     }
   }
 
