@@ -289,7 +289,14 @@ export default function UpcycleProductionClient({
     // separately. Compatible rows where actualQty=0 are never negative.
     const insufficient = rows.filter((r) => r.unitsCompatible && r.normalizedRemaining < 0);
     const incompatible = rows.filter((r) => !r.unitsCompatible);
-    return { rows, totalMaterialCost, unitCost, insufficient, incompatible };
+    // 투입 구성 비율 — 재활용 폐화장품 vs 기타 첨가재료 (원료비 기준, 단위 무관 비교)
+    const COSMETIC_CATS = ["립스틱", "아이섀도우", "립글로스", "샴푸", "기타화장품"];
+    const cosmeticCost = rows
+      .filter((r) => COSMETIC_CATS.includes(r.category ?? ""))
+      .reduce((s, r) => s + r.materialCost, 0);
+    const otherCost = totalMaterialCost - cosmeticCost;
+    const cosmeticPct = totalMaterialCost > 0 ? (cosmeticCost / totalMaterialCost) * 100 : 0;
+    return { rows, totalMaterialCost, unitCost, insufficient, incompatible, cosmeticCost, otherCost, cosmeticPct };
   }, [adjustmentRows, actualProducedQty]);
 
   function lotHasExecRows(l: ItemLot): boolean {
@@ -861,6 +868,12 @@ export default function UpcycleProductionClient({
                     </tr>
                   </tbody>
                 </table>
+                <div className="mt-2 text-[11px] flex flex-wrap items-center gap-2 px-1">
+                  <span className="font-medium text-ink-700">투입 구성(원료비 기준):</span>
+                  <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-200">재활용 화장품 {Math.round(actualSummary.cosmeticPct * 10) / 10}%</span>
+                  <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 border border-stone-300">기타 재료 {Math.round((100 - actualSummary.cosmeticPct) * 10) / 10}%</span>
+                  <span className="text-ink-400">({formatCurrency(actualSummary.cosmeticCost)} / {formatCurrency(actualSummary.otherCost)})</span>
+                </div>
                 <ShortageDebugPanel insufficient={actualSummary.insufficient} incompatible={actualSummary.incompatible} />
                 {/* Legacy summary line — concise count */}
                 {actualSummary.insufficient.length > 0 && (
@@ -1403,6 +1416,12 @@ export default function UpcycleProductionClient({
                     </tr>
                   </tbody>
                 </table>
+                <div className="px-4 py-2 text-[11px] flex flex-wrap items-center gap-2 border-t border-border">
+                  <span className="font-medium text-ink-700">투입 구성(원료비 기준):</span>
+                  <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-200">재활용 화장품 {Math.round(actualSummary.cosmeticPct * 10) / 10}%</span>
+                  <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 border border-stone-300">기타 재료 {Math.round((100 - actualSummary.cosmeticPct) * 10) / 10}%</span>
+                  <span className="text-ink-400">({formatCurrency(actualSummary.cosmeticCost)} / {formatCurrency(actualSummary.otherCost)})</span>
+                </div>
                 {actualSummary.insufficient.length > 0 && (
                   <div className="px-4 py-2 text-[11px] text-red-800 bg-red-50 border-t border-red-200">
                     ⚠ {actualSummary.insufficient.length}종 원료의 차감 후 재고가 음수입니다.
