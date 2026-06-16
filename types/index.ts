@@ -18,7 +18,13 @@ export type MaterialCategory =
   // Legacy categories — preserved so existing 원료재고 rows remain valid.
   | "바인더"
   | "용기"
-  | "스티커";
+  | "스티커"
+  // 업사이클 라인 — 폐화장품 종류 구분
+  | "립스틱"
+  | "아이섀도우"
+  | "립글로스"
+  | "샴푸"
+  | "기타화장품";
 
 export interface Material {
   id: string;
@@ -52,6 +58,13 @@ export interface Material {
   expiryDate: string;
   msds: boolean;
   note: string;
+  // ─── 업사이클 전용 (폐화장품) — 기존 라인에서는 미사용 ───
+  // 통째로 받은 개수(예: 립스틱 100개)
+  receivedUnits?: number;
+  // 개당 내용물 무게(g) — 패키지 제외 순 내용물 (예: 3g)
+  contentWeightPerUnit?: number;
+  // 들어온 화장품 품목/번호 — 수기 자유 입력 (예: "립스틱 3,7번")
+  sourceItems?: string;
 }
 
 // ─── Items ──────────────────────────────────────────────────

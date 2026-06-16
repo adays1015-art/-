@@ -17,11 +17,23 @@ export const CATEGORY_PREFIX: Record<MaterialCategory, string> = {
   바인더: "ETC",
   용기: "ETC",
   스티커: "ETC",
+  // 업사이클 폐화장품 종류
+  립스틱: "LIP",
+  아이섀도우: "SHD",
+  립글로스: "LGL",
+  샴푸: "SHM",
+  기타화장품: "COS",
 };
 
 // Categories shown in the picker, ordered as per spec.
 export const SPEC_CATEGORIES: MaterialCategory[] = [
   "기본원료", "왁스", "오일", "안료", "향료", "케미컬", "패키지", "기타",
+];
+
+// 업사이클 원료재고 화면에서 쓰는 카테고리 — 폐화장품 종류 + 기타 첨가재료.
+export const UPCYCLE_CATEGORIES: MaterialCategory[] = [
+  "립스틱", "아이섀도우", "립글로스", "샴푸", "기타화장품",
+  "기본원료", "오일", "케미컬", "향료", "기타",
 ];
 
 /**

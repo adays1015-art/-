@@ -27,6 +27,8 @@ export const MATERIAL_HEADER = [
   "id", "materialCode", "materialName", "category", "stock", "unit", "safetyStock",
   "supplier", "unitPrice", "unitCost", "costUnit", "capacity",
   "inboundDate", "expiryDate", "msds", "note",
+  // 업사이클 전용: 받은 개수 / 개당 내용물 무게(g) / 들어온 화장품 메모
+  "receivedUnits", "contentWeightPerUnit", "sourceItems",
 ] as const;
 
 function toRow(m: Material): (string | number | boolean)[] {
@@ -42,6 +44,7 @@ function toRow(m: Material): (string | number | boolean)[] {
     m.id, materialCode, materialName, m.category, m.stock, m.unit, m.safetyStock,
     m.supplier, m.unitPrice, unitCost, costUnit, m.capacity ?? "",
     m.inboundDate, m.expiryDate, m.msds ? "TRUE" : "FALSE", m.note,
+    m.receivedUnits ?? "", m.contentWeightPerUnit ?? "", m.sourceItems ?? "",
   ];
 }
 
@@ -89,6 +92,9 @@ function fromRow(r: Record<string, string>): Material {
     expiryDate: r.expiryDate ?? "",
     msds: String(r.msds).toUpperCase() === "TRUE",
     note: r.note ?? "",
+    receivedUnits: (r.receivedUnits ?? "").toString().trim() !== "" ? Number(r.receivedUnits) || 0 : undefined,
+    contentWeightPerUnit: (r.contentWeightPerUnit ?? "").toString().trim() !== "" ? Number(r.contentWeightPerUnit) || 0 : undefined,
+    sourceItems: r.sourceItems ?? "",
   };
 }
 

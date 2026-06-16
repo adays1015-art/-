@@ -42,6 +42,7 @@ const NAV: NavItem[] = [
   { href: "/upcycle-items", label: "업사이클 품목마스터", icon: Tag },
   { href: "/upcycle-bom", label: "업사이클 BOM", icon: ListTree },
   { href: "/upcycle-production", label: "업사이클 생산", icon: Factory },
+  { href: "/upcycle-yield", label: "제공처 수율", icon: Calculator },
 
   { section: "향", href: "/fragrances", label: "향 마스터", icon: Droplet },
   { href: "/fragrance-bom", label: "향 BOM", icon: Beaker },

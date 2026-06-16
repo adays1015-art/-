@@ -17,21 +17,20 @@ import { useResourceSave } from "@/hooks/useResourceSave";
 import SaveErrorPanel from "@/components/SaveErrorPanel";
 import {
   CATEGORY_PREFIX,
-  SPEC_CATEGORIES,
+  UPCYCLE_CATEGORIES,
   nextMaterialCode,
   parseMaterialCode,
 } from "@/lib/materialCode";
 import { optionsWithLegacy, unitHelperText, normalizeUnitCost, usageUnitFor, recommendedUnitForCategory, unitConsistencyWarning } from "@/lib/units";
 
-// Spec categories listed first; legacy categories appended so existing rows
-// remain editable.
-const LEGACY_CATEGORIES: MaterialCategory[] = ["바인더", "용기", "스티커"];
-const CATEGORIES: MaterialCategory[] = [...SPEC_CATEGORIES, ...LEGACY_CATEGORIES];
+// 업사이클 카테고리: 폐화장품 종류 + 기타 첨가재료.
+const CATEGORIES: MaterialCategory[] = [...UPCYCLE_CATEGORIES];
 
 const EMPTY: Material = {
   id: "", materialCode: "", materialName: "", name: "",
-  category: "기본원료", stock: 0, unit: "g", safetyStock: 0,
+  category: "립스틱", stock: 0, unit: "g", safetyStock: 0,
   supplier: "", unitPrice: 0, inboundDate: "", expiryDate: "", msds: false, note: "",
+  receivedUnits: undefined, contentWeightPerUnit: undefined, sourceItems: "",
 };
 
 type SortKey = "materialCode" | "materialName" | "category" | "stock";
@@ -453,10 +452,41 @@ export default function UpcycleMaterialsClient({
               <input className="input" type="number" value={editing.stock} onChange={(e) => setEditing({ ...editing, stock: Number(e.target.value) })} /></div>
             <div><label className="label">안전재고</label>
               <input className="input" type="number" value={editing.safetyStock} onChange={(e) => setEditing({ ...editing, safetyStock: Number(e.target.value) })} /></div>
-            <div><label className="label">공급처</label>
-              <input className="input" value={editing.supplier} onChange={(e) => setEditing({ ...editing, supplier: e.target.value })} /></div>
+            <div><label className="label">제공처 (준 곳)</label>
+              <input className="input" value={editing.supplier} placeholder="폐화장품 준 곳" onChange={(e) => setEditing({ ...editing, supplier: e.target.value })} /></div>
             <div><label className="label">입고일</label>
               <input className="input" type="date" value={editing.inboundDate} onChange={(e) => setEditing({ ...editing, inboundDate: e.target.value })} /></div>
+
+            {/* ─── 폐화장품 인풋 (받은 개수 · 개당 내용물 무게 · 들어온 화장품) ─── */}
+            <div className="col-span-2 panel panel-pad bg-bg-subtle/40">
+              <div className="text-xs font-medium text-ink-700 mb-2">폐화장품 인풋 (제공처 수율 계산용)</div>
+              <div className="grid grid-cols-3 gap-3">
+                <div><label className="label">받은 수량 (개)</label>
+                  <input className="input" type="number" value={editing.receivedUnits ?? ""} placeholder="예: 100"
+                    onChange={(e) => {
+                      const ru = e.target.value === "" ? undefined : Number(e.target.value);
+                      const cw = editing.contentWeightPerUnit;
+                      const next = { ...editing, receivedUnits: ru };
+                      if (ru != null && cw != null) { next.stock = Math.round(ru * cw * 100) / 100; next.unit = "g"; }
+                      setEditing(next);
+                    }} /></div>
+                <div><label className="label">개당 내용물 무게 (g)</label>
+                  <input className="input" type="number" step="0.01" value={editing.contentWeightPerUnit ?? ""} placeholder="패키지 제외"
+                    onChange={(e) => {
+                      const cw = e.target.value === "" ? undefined : Number(e.target.value);
+                      const ru = editing.receivedUnits;
+                      const next = { ...editing, contentWeightPerUnit: cw };
+                      if (ru != null && cw != null) { next.stock = Math.round(ru * cw * 100) / 100; next.unit = "g"; }
+                      setEditing(next);
+                    }} /></div>
+                <div><label className="label">내용물 총량 (g)</label>
+                  <input className="input bg-bg-subtle" type="number" readOnly
+                    value={(editing.receivedUnits ?? 0) * (editing.contentWeightPerUnit ?? 0) || ""} /></div>
+              </div>
+              <div className="text-[10px] text-ink-500 mt-1">받은 수량 × 개당 무게 = 내용물 총량(g) → <b>현재재고(g)</b>에 자동 반영. 패키지는 제외하고 순 내용물만.</div>
+              <div className="mt-2"><label className="label">들어온 화장품 품목/번호 (수기)</label>
+                <input className="input" value={editing.sourceItems ?? ""} placeholder="예: 립스틱 3,7번 / A사 리퍼브" onChange={(e) => setEditing({ ...editing, sourceItems: e.target.value })} /></div>
+            </div>
 
             {/* ─── 구입가 + 자동 단가 계산 ─────────────────── */}
             <div className="col-span-2 panel panel-pad bg-bg-subtle/40">
