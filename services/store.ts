@@ -63,6 +63,12 @@ type Store = {
   equipment?: Equipment[];
   setBom?: SetBomLine[];
   clients?: Client[];
+  // 업사이클링 라인 — 별도 데이터(기존 품목/원료와 분리)
+  upcycleMaterials: Material[];
+  upcycleItems: Item[];
+  upcycleBom: ItemBomLine[];
+  upcycleLots: ItemLot[];
+  upcycleExecution?: ProductionExecutionMaterial[];
 };
 
 declare global {
@@ -99,6 +105,11 @@ export function getStore(): Store {
       equipment: [],
       setBom: [],
       clients: [],
+      upcycleMaterials: [],
+      upcycleItems: [],
+      upcycleBom: [],
+      upcycleLots: [],
+      upcycleExecution: [],
     };
   }
   return globalThis.__BFTER_STORE__;

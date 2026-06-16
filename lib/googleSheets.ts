@@ -60,6 +60,12 @@ export const SHEET_TABS = {
   fragranceExecution: "향생산투입원료",
   equipment: "설비마스터",
   clients: "거래처마스터",
+  // ─── 업사이클링 라인 (버려지는 화장품 재활용) — 독립 관리 ───
+  upcycleMaterials: "업사이클원료재고",
+  upcycleItems: "업사이클품목마스터",
+  upcycleBom: "업사이클BOM",
+  upcycleLots: "업사이클생산LOT",
+  upcycleExecution: "업사이클생산투입원료",
 } as const;
 
 export type SheetTabKey = keyof typeof SHEET_TABS;

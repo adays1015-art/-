@@ -165,4 +165,37 @@ export const SHEET_DEFS: SheetDef[] = [
     description: "품목/세트별 원가 계산 스냅샷 (1개당 원가)",
     headers: ["id", "targetType", "targetCode", "itemNo", "materialCost", "packagingCost", "laborCost", "overheadCost", "defectRate", "totalCost", "calculatedAt", "note"],
   },
+
+  // ─── 업사이클링 라인 (버려지는 화장품 재활용) — 기존 라인과 분리 ───
+  {
+    sheetName: "업사이클원료재고",
+    description: "업사이클 전용 원재료 (버려지는 화장품 등)",
+    headers: ["id", "materialCode", "materialName", "category", "stock", "unit", "safetyStock", "supplier", "unitPrice", "unitCost", "costUnit", "capacity", "inboundDate", "expiryDate", "msds", "note"],
+  },
+  {
+    sheetName: "업사이클품목마스터",
+    description: "업사이클 라인 전용 품목",
+    headers: ["id", "itemNo", "productType", "colorName", "colorCode", "scentName", "scentCode", "status", "stock", "safetyStock", "unit", "productionUnit", "note"],
+  },
+  {
+    sheetName: "업사이클BOM",
+    description: "업사이클 품목별 자재명세서",
+    headers: ["id", "itemNo", "materialId", "materialCode", "materialName", "materialCategory", "amountPerUnit", "qty", "unit", "note"],
+  },
+  {
+    sheetName: "업사이클생산LOT",
+    description: "업사이클 생산 LOT 기록 (실 생산 추적 컬럼 포함)",
+    headers: [
+      "id", "date", "itemNo", "productType", "lotCode", "targetQty", "completedQty", "defectQty",
+      "assignee", "status", "note", "actualProducedQty", "multiplier", "actualMaterialTotalCost", "actualUnitCost",
+      "mixingDate", "mixingWorker", "dispersionDate", "dispersionWorker", "injectionDate", "injectionWorker",
+      "qcDate", "qcWorker", "mixingMachine", "dispersionMachine", "injectionMachine", "qcEquipment",
+      "disposalDate", "disposalQty", "disposalReason", "disposalWorker",
+    ],
+  },
+  {
+    sheetName: "업사이클생산투입원료",
+    description: "업사이클 생산 LOT별 실제 투입 원료 기록",
+    headers: ["id", "lotNo", "itemNo", "materialCode", "materialName", "baseQty", "multiplier", "baseTotalQty", "adjustmentQty", "actualQty", "unit", "unitCost", "materialCost", "createdAt"],
+  },
 ];

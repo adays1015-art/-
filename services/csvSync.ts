@@ -669,7 +669,11 @@ const setBomDef: TabDef<import("@/types").SetBomLine> = {
 };
 
 // ─── Registry ──────────────────────────────────────────────
-export const TAB_DEFS: Record<SheetTabKey, TabDef<unknown>> = {
+// 업사이클링 탭은 CSV 동기화 대상이 아니므로 레지스트리에서 제외한다.
+export const TAB_DEFS: Record<
+  Exclude<SheetTabKey, "upcycleMaterials" | "upcycleItems" | "upcycleBom" | "upcycleLots" | "upcycleExecution">,
+  TabDef<unknown>
+> = {
   materials: materialsDef as TabDef<unknown>,
   items: itemsDef as TabDef<unknown>,
   bom: bomDef as TabDef<unknown>,

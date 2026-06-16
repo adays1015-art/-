@@ -37,6 +37,12 @@ const NAV: NavItem[] = [
   { href: "/bom-templates", label: "BOM 템플릿", icon: Copy },
   { href: "/item-production", label: "품목 생산", icon: Factory },
 
+  // ─── 업사이클링 (버려지는 화장품 재활용 라인 — 별도 관리) ──────
+  { section: "업사이클링", href: "/upcycle-materials", label: "업사이클 원료재고", icon: Boxes },
+  { href: "/upcycle-items", label: "업사이클 품목마스터", icon: Tag },
+  { href: "/upcycle-bom", label: "업사이클 BOM", icon: ListTree },
+  { href: "/upcycle-production", label: "업사이클 생산", icon: Factory },
+
   { section: "향", href: "/fragrances", label: "향 마스터", icon: Droplet },
   { href: "/fragrance-bom", label: "향 BOM", icon: Beaker },
   { href: "/fragrance-production", label: "향 생산", icon: FlaskConical },
