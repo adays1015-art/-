@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { FlaskConical, Plus, Trash2, Printer } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import Modal from "@/components/Modal";
+import LotLabelPreview from "@/components/LotLabelPreview";
+import { printLotLabel, type LotLabel } from "@/lib/printLabel";
 import { Table, THead, TBody, TR, TH, TD, Empty } from "@/components/Table";
 import type {
   Fragrance, FragranceBomLine, FragranceLot, FragranceLotStatus,
@@ -93,6 +95,17 @@ export default function FragranceProductionClient({
   const [registeringId, setRegisteringId] = useState<string | null>(null);
   // 라벨 인쇄 모달
   const [printingLot, setPrintingLot] = useState<FragranceLot | null>(null);
+  function buildLabel(lot: FragranceLot): LotLabel {
+    return {
+      title: "B.fter · 향 LOT",
+      code: lot.lotNo,
+      lines: [
+        `${lot.fragranceCode} · ${lot.fragranceName}`,
+        `${formatNumber(lot.actualProducedQty)}ml · ${lot.status ?? ""}`,
+        `${formatDateKst(lot.productionDate)} · ${lot.worker || "미지정"}`,
+      ],
+    };
+  }
   // 폐기 처리 모달
   type FragranceDisposal = {
     lot: FragranceLot;
@@ -825,31 +838,14 @@ export default function FragranceProductionClient({
         )}
       </Modal>
 
-      {/* ─── 라벨 인쇄 모달 ────────────────────────────── */}
+      {/* ─── 라벨 미리보기/인쇄 모달 (50 × 20 mm) ────────────── */}
       <Modal open={!!printingLot} onClose={() => setPrintingLot(null)}
-        title={printingLot ? `LOT 라벨 — ${printingLot.lotNo}` : ""} width="max-w-md"
+        title={printingLot ? `LOT 라벨 미리보기 — ${printingLot.lotNo}` : ""} width="max-w-md"
         footer={<>
           <button className="btn-ghost" onClick={() => setPrintingLot(null)}>닫기</button>
-          <button className="btn-primary" onClick={() => window.print()}>인쇄</button>
+          <button className="btn-primary" onClick={() => printingLot && printLotLabel(buildLabel(printingLot))}>인쇄</button>
         </>}>
-        {printingLot && (
-          <div className="border-2 border-ink-900 rounded-md p-4 font-mono text-sm leading-relaxed space-y-1" id="fragrance-lot-label">
-            <div className="text-[10px] uppercase tracking-widest text-ink-500">B.fter · Fragrance LOT</div>
-            <div className="text-base font-bold">{printingLot.lotNo}</div>
-            <div className="text-xs">{printingLot.fragranceCode} · {printingLot.fragranceName}</div>
-            <div className="text-[10px] text-ink-600 mt-2 grid grid-cols-2 gap-x-2 gap-y-0.5">
-              <span>생산일</span><span>{formatDateKst(printingLot.productionDate)}</span>
-              <span>담당자</span><span>{printingLot.worker || "(미지정)"}</span>
-              <span>상태</span><span>{printingLot.status ?? "(미지정)"}</span>
-              <span>배합일</span><span>{printingLot.mixingDate ? formatDateKst(printingLot.mixingDate) : "—"}</span>
-              <span>시향일</span><span>{printingLot.scentTestDate ? formatDateKst(printingLot.scentTestDate) : "—"}</span>
-              <span>생산량</span><span>{formatNumber(printingLot.actualProducedQty)} ml</span>
-            </div>
-            <div className="mt-3 border-t border-dashed border-ink-300 pt-2 text-[10px] text-ink-400">
-              [QR/barcode placeholder] · 향후 LOT 추적 코드 추가 가능
-            </div>
-          </div>
-        )}
+        {printingLot && <LotLabelPreview {...buildLabel(printingLot)} />}
       </Modal>
 
       <div className="mt-4 text-[11px] text-ink-500 flex items-start gap-1">
