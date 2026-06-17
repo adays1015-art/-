@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, History as HistoryIcon, Trash2, X } from "lucide-react";
+import { Plus, Pencil, History as HistoryIcon, Trash2, X, Printer } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import Modal from "@/components/Modal";
 import StatusBadge from "@/components/StatusBadge";
@@ -90,6 +90,8 @@ export default function ItemProductionClient({
   const [missingProcessHeaders, setMissingProcessHeaders] = useState<string[]>([]);
   const [missingEquipmentHeaders, setMissingEquipmentHeaders] = useState<string[]>([]);
   const [missingDisposalHeaders, setMissingDisposalHeaders] = useState<string[]>([]);
+  // 라벨 인쇄 모달 — 보관 용기에 붙이는 LOT 라벨.
+  const [printingLot, setPrintingLot] = useState<ItemLot | null>(null);
   // Disposal flow — set when the user clicks 폐기 처리 on a row.
   type DisposalDraft = {
     lot: ItemLot;
@@ -1007,6 +1009,11 @@ export default function ItemProductionClient({
                   </TD>
                   <TD className="text-right">
                     <div className="inline-flex items-center gap-2">
+                      <button
+                        onClick={() => setPrintingLot(l)}
+                        className="text-ink-500 hover:text-ink-900"
+                        title="LOT 라벨 인쇄"
+                      ><Printer size={14} /></button>
                       {(l.status === "예정" || l.status === "보류") && (
                         (() => {
                           const blocked = lotHasExecRows(l);
@@ -1492,6 +1499,36 @@ export default function ItemProductionClient({
           </TBody>
         </Table>
       </div>
+
+      {/* ─── 라벨 인쇄 모달 (보관 용기 부착용) ────────────── */}
+      <Modal open={!!printingLot} onClose={() => setPrintingLot(null)}
+        title={printingLot ? `LOT 라벨 — ${printingLot.lotCode}` : ""} width="max-w-md"
+        footer={<>
+          <button className="btn-ghost" onClick={() => setPrintingLot(null)}>닫기</button>
+          <button className="btn-primary" onClick={() => window.print()}>인쇄</button>
+        </>}>
+        {printingLot && (() => {
+          const it = items.find((i) => i.itemNo === printingLot.itemNo);
+          const qty = printingLot.actualProducedQty ?? printingLot.completedQty ?? 0;
+          return (
+            <div className="border-2 border-ink-900 rounded-md p-4 font-mono text-sm leading-relaxed space-y-1" id="item-lot-label">
+              <div className="text-[10px] uppercase tracking-widest text-ink-500">B.fter · 품목 생산 LOT</div>
+              <div className="text-lg font-bold">{printingLot.lotCode}</div>
+              <div className="text-xs">{printingLot.itemNo}번 · {it?.colorName ?? ""}</div>
+              <div className="text-[10px] text-ink-600 mt-2 grid grid-cols-2 gap-x-2 gap-y-0.5">
+                <span>제품유형</span><span>{printingLot.productType}</span>
+                <span>생산일</span><span>{formatDateKst(printingLot.date)}</span>
+                <span>생산수량</span><span>{formatNumber(qty)} {it?.unit ?? "개"}</span>
+                <span>담당자</span><span>{printingLot.assignee || "(미지정)"}</span>
+                <span>상태</span><span>{printingLot.status ?? "(미지정)"}</span>
+              </div>
+              <div className="mt-3 border-t border-dashed border-ink-300 pt-2 text-[10px] text-ink-400">
+                [QR/barcode placeholder] · 향후 LOT 추적 코드 추가 가능
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }
