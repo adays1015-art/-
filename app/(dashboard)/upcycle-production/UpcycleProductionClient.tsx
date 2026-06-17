@@ -1553,10 +1553,10 @@ function ProcessTrackingPanel({
   value, onChange, defaultInjectionDate, equipment = [],
 }: {
   value: Pick<ItemLot,
-    "intakeDate" | "intakeWorker"
-    | "extractionDate" | "extractionWorker"
-    | "refiningDate" | "refiningWorker"
-    | "agingDate" | "agingWorker"
+    "intakeDate" | "intakeWorker" | "intakeMachine"
+    | "extractionDate" | "extractionWorker" | "extractionMachine"
+    | "refiningDate" | "refiningWorker" | "refiningMachine"
+    | "agingDate" | "agingWorker" | "agingMachine"
     | "mixingDate" | "mixingWorker" | "mixingMachine"
     | "dispersionDate" | "dispersionWorker" | "dispersionMachine"
     | "injectionDate" | "injectionWorker" | "injectionMachine"
@@ -1582,8 +1582,10 @@ function ProcessTrackingPanel({
   const productionWorkers = getProductionWorkers();
   const qcWorkers = getQcWorkers();
   type ProcKey =
-    | "intakeDate" | "intakeWorker" | "extractionDate" | "extractionWorker"
-    | "refiningDate" | "refiningWorker" | "agingDate" | "agingWorker"
+    | "intakeDate" | "intakeWorker" | "intakeMachine"
+    | "extractionDate" | "extractionWorker" | "extractionMachine"
+    | "refiningDate" | "refiningWorker" | "refiningMachine"
+    | "agingDate" | "agingWorker" | "agingMachine"
     | "mixingDate" | "mixingWorker" | "mixingMachine"
     | "dispersionDate" | "dispersionWorker" | "dispersionMachine"
     | "injectionDate" | "injectionWorker" | "injectionMachine"
@@ -1597,22 +1599,26 @@ function ProcessTrackingPanel({
     // ─── 윗줄: 업사이클 선행 공정 (설비 칸 없음) ───
     {
       key: "입고확인", processKey: "입고확인", dateKey: "intakeDate" as const,
-      workerKey: "intakeWorker" as const, workerOptions: productionWorkers,
+      workerKey: "intakeWorker" as const, machineKey: "intakeMachine" as const,
+      machineLabel: "입고확인 설비", workerOptions: productionWorkers,
       tone: "bg-stone-100 text-stone-700 border-stone-300",
     },
     {
       key: "추출", processKey: "추출", dateKey: "extractionDate" as const,
-      workerKey: "extractionWorker" as const, workerOptions: productionWorkers,
+      workerKey: "extractionWorker" as const, machineKey: "extractionMachine" as const,
+      machineLabel: "추출 설비", workerOptions: productionWorkers,
       tone: "bg-rose-50 text-rose-800 border-rose-200",
     },
     {
       key: "정제", processKey: "정제", dateKey: "refiningDate" as const,
-      workerKey: "refiningWorker" as const, workerOptions: productionWorkers,
+      workerKey: "refiningWorker" as const, machineKey: "refiningMachine" as const,
+      machineLabel: "정제 설비", workerOptions: productionWorkers,
       tone: "bg-teal-50 text-teal-800 border-teal-200",
     },
     {
       key: "숙성", processKey: "숙성", dateKey: "agingDate" as const,
-      workerKey: "agingWorker" as const, workerOptions: productionWorkers,
+      workerKey: "agingWorker" as const, machineKey: "agingMachine" as const,
+      machineLabel: "숙성 설비", workerOptions: productionWorkers,
       tone: "bg-indigo-50 text-indigo-800 border-indigo-200",
     },
     // ─── 아랫줄: 기존 공정 ───

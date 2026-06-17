@@ -163,12 +163,16 @@ export interface ItemLot {
   // 기존 라인에서는 미사용. 업사이클 생산 LOT에서만 윗줄로 노출. 메타데이터.
   intakeDate?: string;
   intakeWorker?: string;
+  intakeMachine?: string;
   extractionDate?: string;
   extractionWorker?: string;
+  extractionMachine?: string;
   refiningDate?: string;
   refiningWorker?: string;
+  refiningMachine?: string;
   agingDate?: string;
   agingWorker?: string;
+  agingMachine?: string;
   // ─── Equipment (배합/분산/사출/QC 설비) — metadata only ─────
   // Free-text labels for which machine/equipment was used. Never affects
   // material deduction, product stock, or cost calculation.
