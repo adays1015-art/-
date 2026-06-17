@@ -1,6 +1,7 @@
 // 50 × 20 mm 라벨 전용 인쇄 헬퍼.
-// 보관 용기에 붙여 "무엇인지" 한눈에 보이는 게 목적이므로, 제품명을 크게,
-// 그 아래 LOT 번호와 날짜만 둔다(불필요한 항목 제거).
+// 팝업 차단에 걸리지 않도록 새 창(window.open) 대신 숨김 iframe 에 라벨 문서를
+// 써서 그 iframe 만 인쇄한다. iframe 자체 @page(50×20) 규칙이 적용되므로 다른
+// 화면(A4 인쇄)과 충돌하지 않는다.
 export interface LotLabel {
   name: string;        // 제품명 (가장 큰 글씨)
   code: string;        // LOT 번호
@@ -11,12 +12,7 @@ const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 
 export function printLotLabel(data: LotLabel): void {
-  const w = window.open("", "_blank", "width=420,height=260");
-  if (!w) {
-    alert("팝업이 차단되었습니다. 이 사이트의 팝업을 허용한 뒤 다시 시도해주세요.");
-    return;
-  }
-  w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(data.code || data.name)}</title>
+  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(data.code || data.name)}</title>
 <style>
   @page { size: 50mm 20mm; margin: 0; }
   html, body { margin: 0; padding: 0; }
@@ -39,13 +35,41 @@ export function printLotLabel(data: LotLabel): void {
     ${data.code ? `<div class="code">${esc(data.code)}</div>` : ""}
     ${data.sub ? `<div class="sub">${esc(data.sub)}</div>` : ""}
   </div>
-  <script>
-    window.onload = function () {
-      window.focus();
-      window.print();
-      setTimeout(function () { window.close(); }, 300);
-    };
-  </script>
-</body></html>`);
-  w.document.close();
+</body></html>`;
+
+  // 기존 라벨 iframe 정리 후 새로 생성.
+  const prev = document.getElementById("__lot_label_iframe");
+  if (prev) prev.remove();
+
+  const iframe = document.createElement("iframe");
+  iframe.id = "__lot_label_iframe";
+  iframe.setAttribute("aria-hidden", "true");
+  Object.assign(iframe.style, {
+    position: "fixed", right: "0", bottom: "0",
+    width: "0", height: "0", border: "0", visibility: "hidden",
+  } as CSSStyleDeclaration);
+  document.body.appendChild(iframe);
+
+  const win = iframe.contentWindow;
+  const doc = iframe.contentWindow?.document;
+  if (!win || !doc) {
+    alert("인쇄 준비에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.");
+    iframe.remove();
+    return;
+  }
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const fire = () => {
+    try {
+      win.focus();
+      win.print();
+    } finally {
+      // 인쇄 대화상자가 닫힌 뒤 정리.
+      setTimeout(() => iframe.remove(), 1500);
+    }
+  };
+  // 레이아웃이 잡힌 뒤 인쇄.
+  setTimeout(fire, 250);
 }
