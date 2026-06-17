@@ -86,6 +86,17 @@ export default function MaterialTransactionsClient({
     [materials],
   );
 
+  // 원료 선택용 카테고리 필터 — 원료가 많아 카테고리로 좁혀서 고른다.
+  const [pickCategory, setPickCategory] = useState<string>("전체");
+  const pickCategories = useMemo(
+    () => Array.from(new Set(materials.map((m) => m.category).filter(Boolean))).sort(),
+    [materials],
+  );
+  const pickableMaterials = useMemo(
+    () => (pickCategory === "전체" ? sortedMaterials : sortedMaterials.filter((m) => m.category === pickCategory)),
+    [sortedMaterials, pickCategory],
+  );
+
   // When user picks a material, auto-fill convenient defaults from the master.
   function onPickMaterial(code: string) {
     const m = materials.find((x) => x.id === code || x.materialCode === code);
@@ -254,16 +265,24 @@ export default function MaterialTransactionsClient({
           </div>
           <div className="lg:col-span-2">
             <label className="label">원료 선택</label>
-            <select className="input" value={draft.materialCode}
-              onChange={(e) => onPickMaterial(e.target.value)}>
-              <option value="">— 원료를 선택하세요 —</option>
-              {sortedMaterials.map((m) => {
-                const key = m.materialCode || m.id;
-                return <option key={key} value={key}>
-                  [{m.category}] {m.materialName || m.name} {m.materialCode ? `(${m.materialCode})` : ""}
-                </option>;
-              })}
-            </select>
+            <div className="flex gap-2">
+              <select className="input max-w-[40%]" value={pickCategory}
+                onChange={(e) => setPickCategory(e.target.value)}
+                title="카테고리로 좁히기">
+                <option value="전체">전체 카테고리</option>
+                {pickCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select className="input flex-1" value={draft.materialCode}
+                onChange={(e) => onPickMaterial(e.target.value)}>
+                <option value="">— 원료를 선택하세요{pickCategory !== "전체" ? ` (${pickableMaterials.length}개)` : ""} —</option>
+                {pickableMaterials.map((m) => {
+                  const key = m.materialCode || m.id;
+                  return <option key={key} value={key}>
+                    [{m.category}] {m.materialName || m.name} {m.materialCode ? `(${m.materialCode})` : ""}
+                  </option>;
+                })}
+              </select>
+            </div>
           </div>
           <div>
             <label className="label">제조사</label>
