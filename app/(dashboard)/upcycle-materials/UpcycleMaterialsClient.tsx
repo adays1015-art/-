@@ -12,6 +12,7 @@ import type {
   ProductionExecutionMaterial, FragranceExecutionMaterial,
 } from "@/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { categoryBadgeClass } from "@/lib/categoryColor";
 import { useCanEdit, PERMISSION_TIP } from "@/components/useRole";
 import { useResourceSave } from "@/hooks/useResourceSave";
 import SaveErrorPanel from "@/components/SaveErrorPanel";
@@ -308,7 +309,7 @@ export default function UpcycleMaterialsClient({
                       {m.materialName || m.name}
                     </button>
                   </TD>
-                  <TD><span className="text-xs px-1.5 py-0.5 rounded bg-beige-100 text-ink-800 border border-beige-200">{m.category}</span></TD>
+                  <TD><span className={`inline-block whitespace-nowrap text-xs px-1.5 py-0.5 rounded border ${categoryBadgeClass(m.category)}`}>{m.category}</span></TD>
                   <TD className="text-right tabular-nums">
                     <span className={low ? "text-amber-700 font-semibold" : ""}>{formatNumber(m.stock)} {m.unit}</span>
                     {low && <AlertTriangle size={12} className="inline ml-1 text-amber-600" />}

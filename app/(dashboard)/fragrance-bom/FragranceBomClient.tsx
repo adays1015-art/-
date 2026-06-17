@@ -9,6 +9,7 @@ import type { Fragrance, FragranceBomLine, Material, MaterialCategory } from "@/
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { useCanEdit, PERMISSION_TIP } from "@/components/useRole";
 import { usageUnitFor, unitConsistencyWarning } from "@/lib/units";
+import { categoryBadgeClass } from "@/lib/categoryColor";
 import { useResourceSave } from "@/hooks/useResourceSave";
 import SaveErrorPanel from "@/components/SaveErrorPanel";
 
@@ -208,7 +209,7 @@ export default function FragranceBomClient({
                               </select>
                             </TD>
                             <TD>
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-bg-subtle text-ink-700 border border-border">{l.category}</span>
+                              <span className={`inline-block whitespace-nowrap text-xs px-1.5 py-0.5 rounded border ${categoryBadgeClass(l.category)}`}>{l.category}</span>
                             </TD>
                             <TD className="text-right">
                               <input className="input text-right tabular-nums" type="number" step="0.01"

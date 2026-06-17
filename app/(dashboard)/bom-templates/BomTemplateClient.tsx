@@ -9,6 +9,7 @@ import { PRODUCT_TYPES } from "@/types";
 import { useCanEdit, PERMISSION_TIP } from "@/components/useRole";
 import { useResourceSave } from "@/hooks/useResourceSave";
 import SaveErrorPanel from "@/components/SaveErrorPanel";
+import { categoryBadgeClass } from "@/lib/categoryColor";
 
 const DEFAULT_SUGGESTIONS = [
   "오일파스텔 기본 베이스",
@@ -317,7 +318,7 @@ export default function BomTemplateClient({
                             </select>
                           </TD>
                           <TD>
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-bg-subtle text-ink-700 border border-border">
+                            <span className={`inline-block whitespace-nowrap text-xs px-1.5 py-0.5 rounded border ${categoryBadgeClass(l.category)}`}>
                               {l.category}
                             </span>
                           </TD>

@@ -11,6 +11,7 @@ import { useCanEdit, PERMISSION_TIP } from "@/components/useRole";
 import { usageUnitFor, unitConsistencyWarning } from "@/lib/units";
 import { useResourceSave } from "@/hooks/useResourceSave";
 import SaveErrorPanel from "@/components/SaveErrorPanel";
+import { categoryBadgeClass } from "@/lib/categoryColor";
 
 export default function BomClient({
   initialBom,
@@ -467,7 +468,7 @@ export default function BomClient({
                           </select>
                         </TD>
                         <TD>
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-bg-subtle text-ink-700 border border-border">
+                          <span className={`inline-block whitespace-nowrap text-xs px-1.5 py-0.5 rounded border ${categoryBadgeClass(l.materialCategory)}`}>
                             {l.materialCategory}
                           </span>
                         </TD>
