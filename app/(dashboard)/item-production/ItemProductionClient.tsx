@@ -97,14 +97,13 @@ export default function ItemProductionClient({
   function buildLabel(lot: ItemLot): LotLabel {
     const it = items.find((i) => i.itemNo === lot.itemNo);
     const qty = lot.actualProducedQty ?? lot.completedQty ?? 0;
+    // LOT/UC 로 시작하는 값만 코드로 사용(데이터가 밀려 lotCode 에 날짜가 들어간
+    // 경우 productType 쪽의 진짜 코드를 잡고, ISO 같은 쓰레기값은 숨김).
+    const code = [lot.lotCode, lot.productType].find((v) => /^(LOT|UC)/.test((v ?? "").trim())) ?? "";
     return {
-      title: "B.fter · 품목 LOT",
-      code: lot.lotCode,
-      lines: [
-        `${lot.itemNo}번 · ${it?.colorName ?? ""}`,
-        `${lot.productType} · ${formatNumber(qty)}${it?.unit ?? "개"}`,
-        `${formatDateKst(lot.date)} · ${lot.assignee || "미지정"}`,
-      ],
+      name: `${lot.itemNo}번 ${it?.colorName ?? ""}`.trim(),
+      code,
+      sub: `${formatDateKst(lot.date)} · ${formatNumber(qty)}${it?.unit ?? "개"}`,
     };
   }
   // Disposal flow — set when the user clicks 폐기 처리 on a row.

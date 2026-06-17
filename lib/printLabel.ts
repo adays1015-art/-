@@ -1,10 +1,10 @@
 // 50 × 20 mm 라벨 전용 인쇄 헬퍼.
-// 전체 페이지(window.print)를 인쇄하면 @page 크기가 다른 화면(일일보고 A4 등)과
-// 충돌하므로, 새 창에 라벨만 담아 @page size: 50mm 20mm 로 인쇄한다.
+// 보관 용기에 붙여 "무엇인지" 한눈에 보이는 게 목적이므로, 제품명을 크게,
+// 그 아래 LOT 번호와 날짜만 둔다(불필요한 항목 제거).
 export interface LotLabel {
-  title: string;       // 상단 소제목 (예: "B.fter · 품목 LOT")
-  code: string;        // LOT 번호 (크게)
-  lines: string[];     // 그 아래 짧은 정보 줄들
+  name: string;        // 제품명 (가장 큰 글씨)
+  code: string;        // LOT 번호
+  sub?: string;        // 날짜 등 보조 정보
 }
 
 const esc = (s: string) =>
@@ -16,25 +16,28 @@ export function printLotLabel(data: LotLabel): void {
     alert("팝업이 차단되었습니다. 이 사이트의 팝업을 허용한 뒤 다시 시도해주세요.");
     return;
   }
-  const linesHtml = data.lines.map((l) => `<div class="ln">${esc(l)}</div>`).join("");
-  w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(data.code)}</title>
+  w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(data.code || data.name)}</title>
 <style>
   @page { size: 50mm 20mm; margin: 0; }
   html, body { margin: 0; padding: 0; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .label {
     width: 50mm; height: 20mm; box-sizing: border-box;
-    padding: 1.2mm 2mm; overflow: hidden;
-    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', monospace; color: #000;
+    padding: 1.5mm 2mm; overflow: hidden;
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif; color: #000;
+    display: flex; flex-direction: column; justify-content: center;
   }
-  .ttl { font-size: 5pt; letter-spacing: 0.6px; text-transform: uppercase; color: #555; }
-  .code { font-size: 11pt; font-weight: 800; line-height: 1.02; letter-spacing: -0.3px; }
-  .ln { font-size: 6.5pt; line-height: 1.18; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .name {
+    font-size: 12pt; font-weight: 800; line-height: 1.08;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .code { font-size: 8.5pt; font-weight: 600; margin-top: 0.6mm; }
+  .sub  { font-size: 7.5pt; color: #333; margin-top: 0.3mm; }
 </style></head><body>
   <div class="label">
-    <div class="ttl">${esc(data.title)}</div>
-    <div class="code">${esc(data.code)}</div>
-    ${linesHtml}
+    <div class="name">${esc(data.name || "-")}</div>
+    ${data.code ? `<div class="code">${esc(data.code)}</div>` : ""}
+    ${data.sub ? `<div class="sub">${esc(data.sub)}</div>` : ""}
   </div>
   <script>
     window.onload = function () {

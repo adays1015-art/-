@@ -97,14 +97,11 @@ export default function UpcycleProductionClient({
   function buildLabel(lot: ItemLot): LotLabel {
     const it = items.find((i) => i.itemNo === lot.itemNo);
     const qty = lot.actualProducedQty ?? lot.completedQty ?? 0;
+    const code = [lot.lotCode, lot.productType].find((v) => /^(LOT|UC)/.test((v ?? "").trim())) ?? "";
     return {
-      title: "B.fter · 업사이클 LOT",
-      code: lot.lotCode,
-      lines: [
-        `${lot.itemNo}번 · ${it?.colorName ?? ""}`,
-        `${lot.productType} · ${formatNumber(qty)}${it?.unit ?? "개"}`,
-        `${formatDateKst(lot.date)} · ${lot.assignee || "미지정"}`,
-      ],
+      name: `${lot.itemNo}번 ${it?.colorName ?? ""}`.trim(),
+      code,
+      sub: `${formatDateKst(lot.date)} · ${formatNumber(qty)}${it?.unit ?? "개"}`,
     };
   }
   // Disposal flow — set when the user clicks 폐기 처리 on a row.

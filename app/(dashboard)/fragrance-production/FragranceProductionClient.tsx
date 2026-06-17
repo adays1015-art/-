@@ -97,13 +97,9 @@ export default function FragranceProductionClient({
   const [printingLot, setPrintingLot] = useState<FragranceLot | null>(null);
   function buildLabel(lot: FragranceLot): LotLabel {
     return {
-      title: "B.fter · 향 LOT",
+      name: lot.fragranceName || lot.fragranceCode || "(향)",
       code: lot.lotNo,
-      lines: [
-        `${lot.fragranceCode} · ${lot.fragranceName}`,
-        `${formatNumber(lot.actualProducedQty)}ml · ${lot.status ?? ""}`,
-        `${formatDateKst(lot.productionDate)} · ${lot.worker || "미지정"}`,
-      ],
+      sub: `${formatDateKst(lot.productionDate)} · ${formatNumber(lot.actualProducedQty)}ml`,
     };
   }
   // 폐기 처리 모달
