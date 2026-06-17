@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Plus, Trash2, Save, Search, Copy, BookmarkPlus } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -30,6 +30,8 @@ export default function BomClient({
   const [selectedItemNo, setSelectedItemNo] = useState<string>(items[0]?.itemNo ?? "");
   const [q, setQ] = useState("");
   const { save, error: saveError, clearError, retry, saving } = useResourceSave("/api/bom");
+  // 같은 초안(temp 행)이 동시에 두 번 생성(POST)되는 경쟁을 막기 위한 가드.
+  const persistingDrafts = useRef<Set<string>>(new Set());
 
   // ─── Template-apply dialog state ──────────────────────────
   const [tplOpen, setTplOpen] = useState(false);
@@ -189,8 +191,8 @@ export default function BomClient({
 
   async function addLine() {
     if (!selected) return;
-    // Optimistic placeholder row — replace with the server-issued row once it
-    // returns. If save fails, drop the placeholder.
+    // 로컬 초안 행만 추가한다. 시트에는 사용자가 원료를 고른 뒤(persistLine)
+    // 비로소 1번 기록 → 빈 행이 시트에 쌓이거나 중복 생성되는 문제 방지.
     const tempId = `__tmp-${Date.now()}`;
     const placeholder: ItemBomLine = {
       id: tempId,
@@ -204,27 +206,6 @@ export default function BomClient({
       note: "",
     };
     setBom((p) => [...p, placeholder]);
-    const res = await save<ItemBomLine>("POST", {
-      itemNo: selected.itemNo,
-      materialId: "",
-      materialCode: "",
-      materialName: "",
-      materialCategory: "기타",
-      amountPerUnit: 0,
-      unit: "",
-      note: "",
-    });
-    if (!res.ok) {
-      setBom((p) => p.filter((b) => b.id !== tempId));
-      return;
-    }
-    const created = res.data;
-    if (created && created.id) {
-      setBom((p) => p.map((b) => (b.id === tempId ? created : b)));
-    } else {
-      // Server didn't return the created row — fall back to targeted refetch.
-      await refetchBom();
-    }
   }
 
   function updateLine(b: ItemBomLine, patch: Partial<ItemBomLine>) {
@@ -233,15 +214,50 @@ export default function BomClient({
   }
 
   async function persistLine(b: ItemBomLine) {
-    // updateLine() already applied the change to local state optimistically.
-    // The server-issued copy is the source of truth; if it differs we'll see
-    // it the next time the user navigates. No background refetch needed.
+    const isDraft = b.id.startsWith("__tmp-");
+    if (isDraft) {
+      // 원료를 아직 안 고른 빈 초안은 저장하지 않는다(빈 행 방지).
+      if (!b.materialId && !b.materialCode && !b.materialName) return;
+      // 동일 초안 동시 생성 방지 — 이미 생성 중이면 건너뜀.
+      if (persistingDrafts.current.has(b.id)) return;
+      persistingDrafts.current.add(b.id);
+      const snapshot = bom;
+      const res = await save<ItemBomLine>("POST", {
+        itemNo: b.itemNo,
+        materialId: b.materialId,
+        materialCode: b.materialCode,
+        materialName: b.materialName,
+        materialCategory: b.materialCategory,
+        amountPerUnit: b.amountPerUnit,
+        unit: b.unit,
+        note: b.note,
+      });
+      if (!res.ok) {
+        persistingDrafts.current.delete(b.id);
+        setBom(snapshot);
+        return;
+      }
+      const created = res.data;
+      if (created && created.id) {
+        setBom((p) => p.map((x) => (x.id === b.id ? created : x)));
+      } else {
+        await refetchBom();
+      }
+      persistingDrafts.current.delete(b.id);
+      return;
+    }
+    // 기존 행 — 수정.
     const snapshot = bom;
     const res = await save("PATCH", b);
     if (!res.ok) setBom(snapshot);
   }
 
   async function removeLine(b: ItemBomLine) {
+    // 아직 시트에 안 쓰인 초안은 서버 호출 없이 로컬에서만 제거.
+    if (b.id.startsWith("__tmp-")) {
+      setBom((p) => p.filter((x) => x.id !== b.id));
+      return;
+    }
     if (!confirm("이 BOM 라인을 삭제하시겠습니까?")) return;
     const snapshot = bom;
     // Optimistic remove.
@@ -449,7 +465,8 @@ export default function BomClient({
                               // Match by the same key we use for the option value.
                               const m = materials.find((x, i) => materialKey(x, i) === v);
                               if (!m) return;
-                              updateLine(l, {
+                              const merged: ItemBomLine = {
+                                ...l,
                                 materialId: materialKey(m),
                                 materialCode: m.materialCode || m.id || materialKey(m),
                                 materialName: m.materialName || m.name,
@@ -458,7 +475,12 @@ export default function BomClient({
                                 // purchase unit. kg → g, L → ml; others pass
                                 // through. Existing BOM rows aren't touched.
                                 unit: usageUnitFor(m),
-                              });
+                              };
+                              updateLine(l, merged);
+                              // 기존 행이면 즉시 저장. 초안(아직 시트에 없음)은
+                              // 수량 입력 후 블러/저장 버튼에서 1번만 기록 →
+                              // 생성·수량편집 경쟁 및 빈 행 방지.
+                              if (!merged.id.startsWith("__tmp-")) void persistLine(merged);
                             }}>
                             <option value="">— 원료 선택 —</option>
                             {materials.map((m, i) => {
