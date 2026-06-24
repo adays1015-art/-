@@ -50,3 +50,23 @@ export interface BusinessDocument {
   createdAt: string;
   updatedAt: string;
 }
+
+// 공급자(자사) 정보 — 문서 머리말/하단 + 직인에 사용. 앱에서 편집 가능.
+export interface CompanyInfo {
+  name: string;        // 상호
+  nameEn?: string;     // 영문 상호 (인보이스)
+  ceo: string;         // 대표자
+  bizNo: string;       // 사업자등록번호
+  address: string;     // 주소
+  addressEn?: string;  // 영문 주소 (인보이스)
+  phone: string;
+  fax?: string;
+  email?: string;
+  bank?: string;
+  account?: string;
+  accountHolder?: string;
+  swift?: string;
+  // 직인: 업로드한 도장 이미지(data URL). 없으면 상호로 자동 원형 직인 생성.
+  stampDataUrl?: string;
+}
+

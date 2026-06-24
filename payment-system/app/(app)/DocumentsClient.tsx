@@ -6,7 +6,7 @@ import { Plus, Printer, Pencil, Trash2, Copy, X } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import Modal from "@/components/Modal";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/Table";
-import type { BusinessDocument, DocumentLineItem, DocumentType, TaxMode } from "@/types";
+import type { BusinessDocument, CompanyInfo, DocumentLineItem, DocumentType, TaxMode } from "@/types";
 import { DOCUMENT_TYPES, TAX_MODES } from "@/types";
 import { computeTotals, lineAmount, recalcDocument } from "@/lib/documentMath";
 import { printDocument } from "@/lib/printDocument";
@@ -52,8 +52,8 @@ function emptyDraft(type: DocumentType = "견적서"): Draft {
 const ICON_BTN = "p-1.5 rounded-md hover:bg-bg-subtle text-ink-600 transition-colors";
 
 export default function DocumentsClient({
-  initial, today,
-}: { initial: BusinessDocument[]; today: string }) {
+  initial, company, today,
+}: { initial: BusinessDocument[]; company: CompanyInfo; today: string }) {
   const router = useRouter();
   const [docs, setDocs] = useState(initial);
   const [typeFilter, setTypeFilter] = useState<DocumentType | "전체">("전체");
@@ -157,10 +157,16 @@ export default function DocumentsClient({
 
   function printDraft() {
     const preview = recalcDocument({ ...draft, id: "preview", createdAt: "", updatedAt: "" } as BusinessDocument) as BusinessDocument;
-    printDocument(preview);
+    printDocument(preview, company);
   }
 
   const TABS: (DocumentType | "전체")[] = ["전체", ...DOCUMENT_TYPES];
+  const counts = useMemo(() => {
+    const visible = docs.filter((d) => showCancelled || d.status !== "취소");
+    const m: Record<string, number> = { 전체: visible.length };
+    for (const t of DOCUMENT_TYPES) m[t] = visible.filter((d) => d.docType === t).length;
+    return m;
+  }, [docs, showCancelled]);
 
   return (
     <div>
@@ -175,7 +181,7 @@ export default function DocumentsClient({
           {TABS.map((t) => (
             <button key={t} onClick={() => setTypeFilter(t)}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${typeFilter === t ? "bg-beige-100 text-ink-900 font-medium" : "text-ink-600 hover:bg-bg-subtle"}`}>
-              {t}
+              {t} <span className="text-ink-400">{counts[t] ?? 0}</span>
             </button>
           ))}
         </div>
@@ -205,7 +211,7 @@ export default function DocumentsClient({
               <TD><StatusBadge status={d.status} /></TD>
               <TD>
                 <div className="flex items-center justify-end gap-1">
-                  <button className="btn-ghost !px-2 !py-1 text-xs" title="인쇄 / PDF" onClick={() => printDocument(d)}><Printer size={13} /> 인쇄</button>
+                  <button className="btn-ghost !px-2 !py-1 text-xs" title="인쇄 / PDF" onClick={() => printDocument(d, company)}><Printer size={13} /> 인쇄</button>
                   <button className={ICON_BTN} title="수정" onClick={() => openEdit(d)}><Pencil size={15} /></button>
                   <button className={ICON_BTN} title="복제" onClick={() => openCopy(d)}><Copy size={15} /></button>
                   {d.status !== "취소"

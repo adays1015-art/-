@@ -5,8 +5,30 @@
 // 규칙이 적용되므로 화면의 다른 인쇄 설정과 충돌하지 않는다.
 //
 // 인보이스(영문)는 라벨/금액/통화 표기를 영어로 렌더링한다.
-import type { BusinessDocument } from "@/types";
-import { COMPANY, type CompanyInfo } from "@/lib/companyInfo";
+import type { BusinessDocument, CompanyInfo } from "@/types";
+import { DEFAULT_COMPANY } from "@/lib/companyInfo";
+
+// 직인(도장) HTML 생성.
+//  - 업로드한 도장 이미지가 있으면 그 이미지를 사용.
+//  - 없으면 상호로 빨간 원형 직인을 자동 생성(법인 인감 느낌).
+function sealHtml(company: CompanyInfo): string {
+  if (company.stampDataUrl) {
+    return `<img class="seal-img" src="${company.stampDataUrl}" alt="직인" />`;
+  }
+  // 상호에서 (주)/주식회사/공백 제거한 핵심 글자 추출.
+  const core = (company.name || "")
+    .replace(/\(주\)|\(유\)|주식회사|유한회사|\s/g, "") || (company.name || "");
+  // 글자 수에 맞춰 가운데 텍스트 폰트 크기 조정.
+  const size = core.length <= 2 ? 30 : core.length === 3 ? 24 : core.length === 4 ? 19 : 15;
+  return `
+  <svg class="seal-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="46" fill="none" stroke="#c0392b" stroke-width="3.5"/>
+    <circle cx="50" cy="50" r="40" fill="none" stroke="#c0392b" stroke-width="1.2"/>
+    <text x="50" y="22" text-anchor="middle" fill="#c0392b" font-size="11" font-weight="700">대표이사</text>
+    <text x="50" y="58" text-anchor="middle" fill="#c0392b" font-size="${size}" font-weight="800" letter-spacing="1">${core}</text>
+    <text x="50" y="82" text-anchor="middle" fill="#c0392b" font-size="10" font-weight="700">印</text>
+  </svg>`;
+}
 
 const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"]/g, (c) =>
@@ -177,9 +199,10 @@ function buildHtml(doc: BusinessDocument, company: CompanyInfo): string {
   .bank { margin-top: 12px; padding: 8px 11px; background: #FAF9F7; border: 1px solid #E7E4DF; border-radius: 6px; }
   .bank-title { font-size: 9px; font-weight: 700; letter-spacing: 1px; color: #8A857E; text-transform: uppercase; }
   .bank-line { margin-top: 2px; }
-  .foot { margin-top: 22px; text-align: right; font-size: 12px; }
-  .foot .company { font-weight: 700; font-size: 13px; }
-  .foot .stamp { display: inline-block; margin-left: 6px; color: #8A857E; }
+  .foot { margin-top: 26px; display: flex; justify-content: flex-end; align-items: center; }
+  .foot .company { font-weight: 700; font-size: 14px; }
+  .seal-svg, .seal-img { width: 62px; height: 62px; margin-left: -4px; margin-top: -14px; }
+  .seal-img { object-fit: contain; }
 </style></head><body>
   <div class="doc">
     <div class="head">
@@ -225,13 +248,13 @@ function buildHtml(doc: BusinessDocument, company: CompanyInfo): string {
 
     <div class="foot">
       <span class="company">${esc(us.name)}</span>
-      <span class="stamp">${isEn ? "(Authorized Signature)" : "(인)"}</span>
+      ${sealHtml(company)}
     </div>
   </div>
 </body></html>`;
 }
 
-export function printDocument(doc: BusinessDocument, company: CompanyInfo = COMPANY): void {
+export function printDocument(doc: BusinessDocument, company: CompanyInfo = DEFAULT_COMPANY): void {
   const html = buildHtml(doc, company);
 
   const prev = document.getElementById("__doc_print_iframe");

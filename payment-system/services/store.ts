@@ -5,9 +5,10 @@
  * (재배포/재시작 시 샘플로 초기화) 화면 확정 후 동일한 service 인터페이스
  * 뒤에 Google Sheets 어댑터를 끼우면 된다.
  */
-import type { BusinessDocument } from "@/types";
+import type { BusinessDocument, CompanyInfo } from "@/types";
+import { DEFAULT_COMPANY } from "@/lib/companyInfo";
 
-type Store = { documents: BusinessDocument[] };
+type Store = { documents: BusinessDocument[]; company: CompanyInfo };
 
 declare global {
   // eslint-disable-next-line no-var
@@ -43,6 +44,7 @@ function seed(): Store {
         note: "Payment term: T/T 30 days. Incoterms: FOB Busan.", createdAt: "2026-06-20T00:00:00.000Z", updatedAt: "2026-06-20T00:00:00.000Z",
       },
     ],
+    company: { ...DEFAULT_COMPANY },
   };
 }
 

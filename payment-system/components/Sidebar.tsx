@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText } from "lucide-react";
+import { FileText, Building2 } from "lucide-react";
 
 const NAV = [
   { href: "/", label: "거래문서", icon: FileText },
+  { href: "/company", label: "회사 정보", icon: Building2 },
 ];
 
 export default function Sidebar() {
