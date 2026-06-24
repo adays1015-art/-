@@ -10,8 +10,8 @@ const sans = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "결제관리 시스템",
-  description: "거래처별 청구·수금·미수금 관리 시스템",
+  title: "거래문서 출력",
+  description: "견적서 · 거래명세서 · 인보이스 · 발주서 작성 및 인쇄",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
