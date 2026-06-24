@@ -38,6 +38,7 @@ import type {
   Equipment,
   SetBomLine,
   Client,
+  BusinessDocument,
   TestResult,
 } from "@/types";
 
@@ -64,6 +65,7 @@ type Store = {
   equipment?: Equipment[];
   setBom?: SetBomLine[];
   clients?: Client[];
+  documents?: BusinessDocument[];
   // 업사이클링 라인 — 별도 데이터(기존 품목/원료와 분리)
   upcycleMaterials: Material[];
   upcycleItems: Item[];
@@ -107,6 +109,7 @@ export function getStore(): Store {
       equipment: [],
       setBom: [],
       clients: [],
+      documents: [],
       upcycleMaterials: [],
       upcycleItems: [],
       upcycleBom: [],

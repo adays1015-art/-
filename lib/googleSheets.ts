@@ -60,6 +60,8 @@ export const SHEET_TABS = {
   fragranceExecution: "향생산투입원료",
   equipment: "설비마스터",
   clients: "거래처마스터",
+  // ─── 거래문서 (견적서·거래명세서·인보이스·발주서) ───
+  documents: "거래문서",
   // ─── 업사이클링 라인 (버려지는 화장품 재활용) — 독립 관리 ───
   upcycleMaterials: "업사이클원료재고",
   upcycleItems: "업사이클품목마스터",

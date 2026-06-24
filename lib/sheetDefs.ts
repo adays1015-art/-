@@ -198,4 +198,14 @@ export const SHEET_DEFS: SheetDef[] = [
     description: "업사이클 생산 LOT별 실제 투입 원료 기록",
     headers: ["id", "lotNo", "itemNo", "materialCode", "materialName", "baseQty", "multiplier", "baseTotalQty", "adjustmentQty", "actualQty", "unit", "unitCost", "materialCost", "createdAt"],
   },
+  {
+    sheetName: "거래문서",
+    description: "견적서 · 거래명세서 · 인보이스 · 발주서 보관. docType 으로 구분, 품목은 itemsJson 에 JSON 저장",
+    headers: [
+      "id", "docType", "docNo", "issueDate", "status",
+      "clientId", "clientName", "clientBizNo", "clientContact", "clientPhone", "clientAddress",
+      "currency", "taxMode", "taxRate", "itemsJson",
+      "subtotal", "tax", "total", "note", "createdAt", "updatedAt",
+    ],
+  },
 ];

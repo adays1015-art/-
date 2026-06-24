@@ -55,6 +55,9 @@ const NAV: NavItem[] = [
   { href: "/finished-sets", label: "완제품 세트 재고", icon: Package },
   { href: "/shipments", label: "출고 관리", icon: Truck },
 
+  // ─── 거래문서 (견적서·거래명세서·인보이스·발주서) ─────────
+  { section: "문서", href: "/documents", label: "거래문서", icon: FileText },
+
   // ─── 관리 (PIN-gated; hidden until unlocked) ─────────────
   { section: "관리", href: "/daily-report", label: "일일 작업 보고서", icon: FileText, protected: true },
   { href: "/history", label: "작업 이력", icon: History, protected: true },

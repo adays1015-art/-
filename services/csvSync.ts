@@ -669,9 +669,10 @@ const setBomDef: TabDef<import("@/types").SetBomLine> = {
 };
 
 // ─── Registry ──────────────────────────────────────────────
-// 업사이클링 탭과 테스트결과(이미지)는 CSV 동기화 대상이 아니므로 제외한다.
+// 업사이클링 탭과 테스트결과(이미지), 거래문서(JSON 컬럼)는 CSV 동기화 대상이
+// 아니므로 제외한다.
 export const TAB_DEFS: Record<
-  Exclude<SheetTabKey, "upcycleMaterials" | "upcycleItems" | "upcycleBom" | "upcycleLots" | "upcycleExecution" | "testResults">,
+  Exclude<SheetTabKey, "upcycleMaterials" | "upcycleItems" | "upcycleBom" | "upcycleLots" | "upcycleExecution" | "testResults" | "documents">,
   TabDef<unknown>
 > = {
   materials: materialsDef as TabDef<unknown>,
