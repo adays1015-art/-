@@ -82,56 +82,102 @@ async function call(opts: {
   const { url, action, method, body, timeoutMs = 30_000 } = opts;
   const requestBody = body !== undefined ? JSON.stringify(body) : undefined;
 
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  // Dynamic import keeps the debug module out of the Edge bundle.
+  const { recordTrace } = await import("@/lib/appsScriptDebug");
+
+  // 구글 Apps Script 는 순간 과부하/일시 오류로 404("파일 열 수 없음"), 5xx,
+  // HTML 오류 페이지, 또는 abort 를 자주 뱉는다. 이런 "일시적" 실패는 자동으로
+  // 몇 번 재시도해 사용자에게 빨간 에러로 튀지 않도록 한다.
+  // 쓰기(POST)는 중복 기록을 막기 위해 "스크립트가 실행되지 않은 게 확실한"
+  // 경우(HTTP 4xx/5xx·HTML 페이지)만 재시도하고, 자체 타임아웃 abort(서버에서
+  // 이미 처리됐을 수 있음)에는 재시도하지 않는다.
+  const RETRYABLE_STATUS = new Set([404, 408, 425, 429, 500, 502, 503, 504]);
+  const MAX_ATTEMPTS = 3;
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const backoff = (attempt: number) => 500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 250);
 
   let httpStatus: number | undefined;
   let responseBody: string | undefined;
   let parsed: AppsScriptResponse | undefined;
-  // Dynamic import keeps the debug module out of the Edge bundle.
-  const { recordTrace } = await import("@/lib/appsScriptDebug");
+  let lastError: AppsScriptCallError | undefined;
 
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: body !== undefined ? { "Content-Type": "text/plain;charset=utf-8" } : undefined,
-      body: requestBody,
-      redirect: "follow",
-      signal: ctrl.signal,
-      // Next.js 14 데이터 캐시 우회. force-dynamic 페이지 안에서도
-      // fetch 가 cached 될 가능성을 차단합니다.
-      cache: "no-store",
-    });
-    httpStatus = res.status;
-    responseBody = await res.text();
-    if (!res.ok) {
-      const errorMessage = `Apps Script HTTP ${res.status}`;
-      recordTrace({ url, action, method, requestBody, httpStatus, responseBody, ok: false, errorMessage, at: new Date().toISOString() });
-      throw new AppsScriptCallError({ url, action, method, requestBody, httpStatus, responseBody, errorMessage });
-    }
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      parsed = JSON.parse(responseBody) as AppsScriptResponse;
-    } catch {
-      const errorMessage = "Apps Script returned non-JSON response";
+      const res = await fetch(url, {
+        method,
+        headers: body !== undefined ? { "Content-Type": "text/plain;charset=utf-8" } : undefined,
+        body: requestBody,
+        redirect: "follow",
+        signal: ctrl.signal,
+        // Next.js 14 데이터 캐시 우회.
+        cache: "no-store",
+      });
+      httpStatus = res.status;
+      responseBody = await res.text();
+
+      if (!res.ok) {
+        if (attempt < MAX_ATTEMPTS && RETRYABLE_STATUS.has(res.status)) {
+          clearTimeout(timer);
+          await sleep(backoff(attempt));
+          continue;
+        }
+        const errorMessage = `Apps Script HTTP ${res.status}`;
+        recordTrace({ url, action, method, requestBody, httpStatus, responseBody, ok: false, errorMessage, at: new Date().toISOString() });
+        clearTimeout(timer);
+        throw new AppsScriptCallError({ url, action, method, requestBody, httpStatus, responseBody, errorMessage });
+      }
+
+      try {
+        parsed = JSON.parse(responseBody) as AppsScriptResponse;
+      } catch {
+        // 구글이 스크립트 대신 HTML 오류 페이지를 돌려준 경우 → 일시적, 재시도.
+        const looksHtml = /<html|<!doctype/i.test(responseBody ?? "");
+        if (attempt < MAX_ATTEMPTS && looksHtml) {
+          clearTimeout(timer);
+          await sleep(backoff(attempt));
+          continue;
+        }
+        const errorMessage = "Apps Script returned non-JSON response";
+        recordTrace({ url, action, method, requestBody, httpStatus, responseBody, ok: false, errorMessage, at: new Date().toISOString() });
+        clearTimeout(timer);
+        throw new AppsScriptCallError({ url, action, method, requestBody, httpStatus, responseBody, errorMessage });
+      }
+
+      if (parsed.ok === false) {
+        // 스크립트가 정상 실행되어 논리 오류를 반환 → 재시도하지 않는다.
+        const reason = (parsed as AppsScriptErr).error ?? (parsed as AppsScriptErr).message ?? "Apps Script returned ok:false";
+        const errorMessage = `Apps Script: ${reason}`;
+        recordTrace({ url, action, method, requestBody, httpStatus, responseBody, ok: false, errorMessage, at: new Date().toISOString() });
+        clearTimeout(timer);
+        throw new AppsScriptCallError({ url, action, method, requestBody, httpStatus, responseBody, parsed, errorMessage });
+      }
+
+      recordTrace({ url, action, method, requestBody, httpStatus, responseBody, ok: true, at: new Date().toISOString() });
+      clearTimeout(timer);
+      return parsed as AppsScriptOk;
+    } catch (err) {
+      clearTimeout(timer);
+      if (err instanceof AppsScriptCallError) throw err;
+      // fetch 자체 실패(네트워크/타임아웃 abort). 읽기는 항상 재시도, 쓰기는
+      // abort 엔 재시도하지 않아(서버에서 이미 처리됐을 수 있음) 중복을 막는다.
+      const isAbort = (err as Error)?.name === "AbortError";
+      const errorMessage = isAbort ? "Apps Script 요청 시간 초과(aborted)" : (err as Error).message;
+      lastError = new AppsScriptCallError({ url, action, method, requestBody, httpStatus, responseBody, errorMessage });
+      const canRetry = attempt < MAX_ATTEMPTS && (method === "GET" || !isAbort);
+      if (canRetry) {
+        await sleep(backoff(attempt));
+        continue;
+      }
       recordTrace({ url, action, method, requestBody, httpStatus, responseBody, ok: false, errorMessage, at: new Date().toISOString() });
-      throw new AppsScriptCallError({ url, action, method, requestBody, httpStatus, responseBody, errorMessage });
+      throw lastError;
     }
-    if (parsed.ok === false) {
-      const reason = (parsed as AppsScriptErr).error ?? (parsed as AppsScriptErr).message ?? "Apps Script returned ok:false";
-      const errorMessage = `Apps Script: ${reason}`;
-      recordTrace({ url, action, method, requestBody, httpStatus, responseBody, ok: false, errorMessage, at: new Date().toISOString() });
-      throw new AppsScriptCallError({ url, action, method, requestBody, httpStatus, responseBody, parsed, errorMessage });
-    }
-    recordTrace({ url, action, method, requestBody, httpStatus, responseBody, ok: true, at: new Date().toISOString() });
-    return parsed as AppsScriptOk;
-  } catch (err) {
-    if (err instanceof AppsScriptCallError) throw err;
-    const errorMessage = (err as Error).message;
-    recordTrace({ url, action, method, requestBody, httpStatus, responseBody, ok: false, errorMessage, at: new Date().toISOString() });
-    throw new AppsScriptCallError({ url, action, method, requestBody, httpStatus, responseBody, errorMessage });
-  } finally {
-    clearTimeout(timer);
   }
+  // 재시도(HTTP/HTML) 를 마지막까지 소진한 경우 — 안전망.
+  const errorMessage = `Apps Script 일시 오류로 ${MAX_ATTEMPTS}회 재시도 후 실패`;
+  recordTrace({ url, action, method, requestBody, httpStatus, responseBody, ok: false, errorMessage, at: new Date().toISOString() });
+  throw lastError ?? new AppsScriptCallError({ url, action, method, requestBody, httpStatus, responseBody, errorMessage });
 }
 
 export async function pingAppsScript(url: string): Promise<{ ok: boolean; message?: string; detail?: AppsScriptCallDetail }> {
