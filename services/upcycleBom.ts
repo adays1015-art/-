@@ -37,7 +37,7 @@ function fromRow(r: Record<string, string>): ItemBomLine {
     : r.qty;
   return {
     id: r.id ?? "",
-    itemNo: r.itemNo ?? "",
+    itemNo: (r.itemNo ?? "").trim(),
     materialId: r.materialId ?? r.materialCode ?? "",
     materialCode: r.materialCode ?? "",
     materialName: r.materialName ?? "",

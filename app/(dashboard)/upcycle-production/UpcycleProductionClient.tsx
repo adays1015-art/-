@@ -545,7 +545,7 @@ export default function UpcycleProductionClient({
     } else if (adjustmentRows.length === 0) {
       diag.execStatus = "skipped (empty)";
       diag.skipReason = bomForItem.length === 0
-        ? `품목 ${draft.itemNo}번에 대한 BOM 행이 없습니다. 먼저 /bom 에서 BOM을 등록하세요.`
+        ? `품목 ${draft.itemNo}번에 대한 BOM 행이 없습니다. 먼저 업사이클 BOM에서 등록하세요.`
         : "BOM 매칭은 되었지만 adjustmentRows가 비었습니다 (예상치 못한 상태).";
     } else if (isNew && lotId) {
       setSavingExec(true);

@@ -29,13 +29,15 @@ function toRow(i: Item): (string | number | boolean)[] {
 function fromRow(r: Record<string, string>): Item {
   return {
     id: r.id ?? "",
-    itemNo: r.itemNo ?? "",
+    itemNo: (r.itemNo ?? "").trim(),
     productType: (r.productType as ProductType) ?? "오일파스텔",
     colorName: r.colorName ?? "",
     colorCode: r.colorCode ?? "",
     scentName: r.scentName ?? "",
     scentCode: r.scentCode ?? "",
-    status: (r.status as ItemStatus) ?? "사용중",
+    // 빈 값("")은 nullish 가 아니라 ?? 로 기본값이 안 잡혀 생산 목록에서
+    // 걸러졌었음 → 빈/공백 status 는 "사용중" 으로 처리.
+    status: ((r.status ?? "").trim() as ItemStatus) || "사용중",
     stock: Number(r.stock) || 0,
     safetyStock: Number(r.safetyStock) || 0,
     unit: r.unit ?? "개",
