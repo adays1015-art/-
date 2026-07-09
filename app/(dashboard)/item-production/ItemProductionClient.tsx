@@ -299,7 +299,9 @@ export default function ItemProductionClient({
       };
     });
     const totalMaterialCost = rows.reduce((s, r) => s + r.materialCost, 0);
-    const unitCost = actualProducedQty > 0 ? totalMaterialCost / actualProducedQty : 0;
+    // 생산수량이 0(예정/테스트 등)이어도 원가가 보이도록 작업배수(없으면 1)로 폴백.
+    const costDenom = actualProducedQty > 0 ? actualProducedQty : (multiplier > 0 ? multiplier : 1);
+    const unitCost = totalMaterialCost / costDenom;
     // Distinguish "negative-but-compatible" (genuine shortage) from
     // "incompatible-units" (data problem) so the UI can label them
     // separately. Compatible rows where actualQty=0 are never negative.
