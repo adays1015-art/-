@@ -1810,6 +1810,12 @@ function ProcessBadges({ lot }: { lot: ItemLot }) {
   const wf = (lot.assignee ?? "").trim();
   const df = (lot.date ?? "").trim();
   const rows: Array<{ key: string; date?: string; worker?: string; machine?: string; tone: string }> = [
+    // 업사이클 선행 공정 (입고확인 · 추출 · 정제 · 숙성)
+    { key: "입고확인", date: lot.intakeDate     || df, worker: lot.intakeWorker     || wf, machine: lot.intakeMachine,     tone: "bg-stone-100 text-stone-700 border-stone-300" },
+    { key: "추출",   date: lot.extractionDate || df, worker: lot.extractionWorker || wf, machine: lot.extractionMachine, tone: "bg-rose-50 text-rose-800 border-rose-200" },
+    { key: "정제",   date: lot.refiningDate   || df, worker: lot.refiningWorker   || wf, machine: lot.refiningMachine,   tone: "bg-teal-50 text-teal-800 border-teal-200" },
+    { key: "숙성",   date: lot.agingDate      || df, worker: lot.agingWorker      || wf, machine: lot.agingMachine,      tone: "bg-indigo-50 text-indigo-800 border-indigo-200" },
+    // 기존 공정
     { key: "배합", date: lot.mixingDate     || df, worker: lot.mixingWorker     || wf, machine: lot.mixingMachine,     tone: "bg-violet-50 text-violet-800 border-violet-200" },
     { key: "분산", date: lot.dispersionDate || df, worker: lot.dispersionWorker || wf, machine: lot.dispersionMachine, tone: "bg-sky-50 text-sky-800 border-sky-200" },
     { key: "사출", date: lot.injectionDate  || df, worker: lot.injectionWorker  || wf, machine: lot.injectionMachine,  tone: "bg-amber-50 text-amber-800 border-amber-200" },
@@ -1824,6 +1830,10 @@ function ProcessBadges({ lot }: { lot: ItemLot }) {
   // LOTs. (Worker is still shown inside the chip when present.)
   const hasStepData = (key: string) => {
     switch (key) {
+      case "입고확인": return !!(lot.intakeDate || lot.intakeWorker || lot.intakeMachine);
+      case "추출":   return !!(lot.extractionDate || lot.extractionWorker || lot.extractionMachine);
+      case "정제":   return !!(lot.refiningDate || lot.refiningWorker || lot.refiningMachine);
+      case "숙성":   return !!(lot.agingDate || lot.agingWorker || lot.agingMachine);
       case "배합": return !!(lot.mixingDate || lot.mixingMachine);
       case "분산": return !!(lot.dispersionDate || lot.dispersionMachine);
       case "사출": return !!(lot.injectionDate || lot.injectionMachine);
