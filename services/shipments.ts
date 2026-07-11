@@ -9,6 +9,7 @@ import { getStore } from "./store";
 import { genId } from "@/lib/utils";
 import { shipFinishedSet } from "./finishedSets";
 import { consumeItems as consumeUpcycleItems } from "./upcycleItems";
+import { consumeItems as consumeMainItems } from "./items";
 import { logWork } from "./history";
 
 const TAB = SHEET_TABS.shipments;
@@ -81,6 +82,12 @@ export async function createShipment(input: Omit<Shipment, "id">): Promise<{ shi
     if (!res.ok) {
       warning = `업사이클 품목 재고 부족 — ${input.optionCode}`;
     }
+  } else if (line === "품목") {
+    // 개별 품목(서비스 출고): 품목마스터 재고(optionCode = itemNo)를 차감.
+    const res = await consumeMainItems([{ itemNo: input.optionCode, amount: input.qty }]);
+    if (!res.ok) {
+      warning = `품목 재고 부족 — ${input.optionCode}`;
+    }
   } else {
     // 기존: 완제품 세트 재고를 optionCode 로 차감.
     const ship = await shipFinishedSet(input.optionCode, input.qty);
@@ -95,10 +102,12 @@ export async function createShipment(input: Omit<Shipment, "id">): Promise<{ shi
   if ((await useSheets())) await appendRow(TAB, toRow(s), SHIPMENT_HEADER);
   else getStore().shipments.unshift(s);
 
+  const lineTag = line === "업사이클" ? "[업사이클] " : line === "품목" ? "[품목] " : "";
+  const unit = line === "기존" ? "세트" : "개";
   await logWork({
     type: "출고",
-    target: `${line === "업사이클" ? "[업사이클] " : ""}${s.productType} ${s.setSize} ${s.optionName}`,
-    change: `-${s.qty}${line === "업사이클" ? "개" : "세트"} (${s.customer})`,
+    target: `${lineTag}${s.productType} ${s.setSize} ${s.optionName}`,
+    change: `-${s.qty}${unit} (${s.customer})`,
     assignee: s.assignee,
     note: warning ?? s.note,
   });

@@ -25,8 +25,8 @@ function emptyShipment(): EditableShipment {
 }
 
 export default function ShipmentsClient({
-  initial, finished, clients = [], upcycleItems = [],
-}: { initial: Shipment[]; finished: FinishedSet[]; clients?: Client[]; upcycleItems?: Item[] }) {
+  initial, finished, clients = [], upcycleItems = [], saleItems = [],
+}: { initial: Shipment[]; finished: FinishedSet[]; clients?: Client[]; upcycleItems?: Item[]; saleItems?: Item[] }) {
   const router = useRouter();
   const [items, setItems] = useState<Shipment[]>(initial);
   const [visibleCount, setVisibleCount] = useState<number>(50);
@@ -37,10 +37,11 @@ export default function ShipmentsClient({
   const { save, saving, error: saveError, clearError } = useResourceSave("/api/shipments");
 
   const isUpcycle = editing?.line === "업사이클";
+  const isItemLine = editing?.line === "품목";
 
-  // 선택된 재고 표시용. 기존=완제품세트 가용, 업사이클=품목 stock.
+  // 선택된 재고 표시용. 기존=완제품세트 가용, 업사이클/품목=품목 stock.
   const selectedStock = useMemo(() => {
-    if (!editing?.optionCode || editing.line === "업사이클") return null;
+    if (!editing?.optionCode || editing.line === "업사이클" || editing.line === "품목") return null;
     return finished.find((f) => f.optionCode === editing.optionCode) ?? null;
   }, [editing, finished]);
 
@@ -48,6 +49,11 @@ export default function ShipmentsClient({
     if (!editing?.optionCode || editing.line !== "업사이클") return null;
     return upcycleItems.find((u) => u.itemNo === editing.optionCode) ?? null;
   }, [editing, upcycleItems]);
+
+  const selectedSaleItem = useMemo(() => {
+    if (!editing?.optionCode || editing.line !== "품목") return null;
+    return saleItems.find((u) => u.itemNo === editing.optionCode) ?? null;
+  }, [editing, saleItems]);
 
   async function onSave() {
     if (!editing) return;
@@ -66,11 +72,16 @@ export default function ShipmentsClient({
     <div>
       <PageHeader
         title="출고 관리"
-        description="완제품 세트 또는 업사이클 제품 단위로 출고를 등록합니다. 기존은 완제품 세트 재고, 업사이클은 업사이클 품목 재고에서 차감됩니다."
+        description="완제품 세트 · 개별 품목(서비스) · 업사이클 제품 단위로 출고를 등록합니다. 각 구분에 맞는 재고에서 차감됩니다."
         actions={
-          <button className="btn-primary" onClick={() => { setEditing(emptyShipment()); setWarning(null); }}
-            disabled={!canEditShip} title={!canEditShip ? PERMISSION_TIP : undefined}
-          ><Plus size={14} /> 출고 등록</button>
+          <div className="flex gap-2">
+            <button className="btn-ghost" onClick={() => { setEditing({ ...emptyShipment(), line: "품목" }); setWarning(null); }}
+              disabled={!canEditShip} title={!canEditShip ? PERMISSION_TIP : "개별 품목을 품목 재고에서 바로 출고"}
+            ><Plus size={14} /> 서비스 출고</button>
+            <button className="btn-primary" onClick={() => { setEditing(emptyShipment()); setWarning(null); }}
+              disabled={!canEditShip} title={!canEditShip ? PERMISSION_TIP : undefined}
+            ><Plus size={14} /> 출고 등록</button>
+          </div>
         }
       />
 
@@ -89,10 +100,12 @@ export default function ShipmentsClient({
                 <TD>
                   {s.line === "업사이클"
                     ? <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">업사이클</span>
+                    : s.line === "품목"
+                    ? <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">품목</span>
                     : <span className="text-xs px-1.5 py-0.5 rounded bg-beige-100 text-ink-700 border border-beige-200">기존</span>}
                 </TD>
                 <TD><span className="text-xs px-1.5 py-0.5 rounded bg-beige-100 text-ink-800 border border-beige-200">{s.productType}</span></TD>
-                <TD>{s.line === "업사이클" ? <span className="text-ink-400">—</span> : s.setSize}</TD>
+                <TD>{s.line === "업사이클" || s.line === "품목" ? <span className="text-ink-400">—</span> : s.setSize}</TD>
                 <TD className="font-medium text-ink-900">{s.optionName}</TD>
                 <TD className="font-mono text-xs">{s.optionCode}</TD>
                 <TD className="text-right tabular-nums font-semibold text-red-600">-{formatNumber(s.qty)}</TD>
@@ -135,20 +148,22 @@ export default function ShipmentsClient({
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2"><label className="label">구분</label>
                 <div className="flex gap-2">
-                  {(["기존", "업사이클"] as const).map((ln) => (
+                  {([
+                    ["기존", "완제품 세트", "bg-ink-800 text-white border-ink-800"],
+                    ["품목", "개별 품목", "bg-blue-600 text-white border-blue-600"],
+                    ["업사이클", "업사이클 제품", "bg-emerald-600 text-white border-emerald-600"],
+                  ] as const).map(([ln, label, activeCls]) => (
                     <button key={ln} type="button"
                       className={`flex-1 px-3 py-1.5 rounded-md text-sm border transition ${
                         (editing.line ?? "기존") === ln
-                          ? (ln === "업사이클"
-                              ? "bg-emerald-600 text-white border-emerald-600"
-                              : "bg-ink-800 text-white border-ink-800")
+                          ? activeCls
                           : "bg-white text-ink-600 border-beige-200 hover:bg-beige-50"}`}
                       onClick={() => setEditing({
                         ...editing, line: ln,
                         // 라인 변경 시 선택 초기화 (코드 의미가 다름)
                         optionCode: "", optionName: "",
                       })}>
-                      {ln === "업사이클" ? "업사이클 제품" : "완제품 세트 (기존)"}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -159,7 +174,37 @@ export default function ShipmentsClient({
               <div><label className="label">담당자</label>
                 <input className="input" value={editing.assignee}
                   onChange={(e) => setEditing({ ...editing, assignee: e.target.value })} /></div>
-              {isUpcycle ? (
+              {isItemLine ? (
+                <div className="col-span-2"><label className="label">개별 품목 (서비스 출고)</label>
+                  <select className="input"
+                    value={editing.optionCode}
+                    onChange={(e) => {
+                      const u = saleItems.find((x) => x.itemNo === e.target.value);
+                      if (!u) {
+                        setEditing({ ...editing, optionCode: e.target.value });
+                        return;
+                      }
+                      setEditing({
+                        ...editing,
+                        optionCode: u.itemNo,
+                        optionName: u.colorName,
+                        productType: u.productType,
+                      });
+                    }}>
+                    <option value="">선택...</option>
+                    {saleItems.map((u) => (
+                      <option key={u.id} value={u.itemNo}>
+                        {u.itemNo}번 · {u.colorName} — 재고 {formatNumber(u.stock)} {u.unit}
+                      </option>
+                    ))}
+                  </select>
+                  {saleItems.length === 0 && (
+                    <div className="text-[11px] text-ink-500 mt-1">
+                      등록된 품목이 없습니다. <a href="/items" className="underline">품목 마스터</a>에서 먼저 등록하세요.
+                    </div>
+                  )}
+                </div>
+              ) : isUpcycle ? (
                 <div className="col-span-2"><label className="label">업사이클 제품</label>
                   <select className="input"
                     value={editing.optionCode}
@@ -317,6 +362,18 @@ export default function ShipmentsClient({
                 </div>
               );
             })()}
+
+            {selectedSaleItem && (
+              <div className="panel panel-pad text-sm text-ink-700">
+                선택된 품목 재고 —{" "}
+                <b className={selectedSaleItem.stock < editing.qty ? "text-red-700" : "text-emerald-700"}>
+                  {formatNumber(selectedSaleItem.stock)}
+                </b> {selectedSaleItem.unit}
+                {selectedSaleItem.stock < editing.qty && (
+                  <span className="ml-2 text-red-700">⚠️ 출고 수량이 재고를 초과합니다.</span>
+                )}
+              </div>
+            )}
 
             {selectedUpcycle && (
               <div className="panel panel-pad text-sm text-ink-700">

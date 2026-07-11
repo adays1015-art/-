@@ -388,7 +388,7 @@ export interface TestResult {
   status: string;        // "활성" | "삭제됨" (소프트 삭제)
 }
 
-export type ShipmentLine = "기존" | "업사이클";
+export type ShipmentLine = "기존" | "업사이클" | "품목";
 
 // ─── Work history ───────────────────────────────────────────
 export type WorkLogType =
