@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Save, Calculator, Tag, Layers, Sparkles, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Table, THead, TBody, TR, TH, TD, Empty } from "@/components/Table";
@@ -340,13 +340,19 @@ export default function CostClient({
   const setCosts = useMemo(
     () => setOptions.map((opt) => ({
       option: opt,
-      ...computeSetCost({ option: opt, composition: setComposition, items, bom, materials, costItems: costList }),
+      // 품목 화면과 동일한 "적용 1개 원가"(저장값 > 실제 LOT > BOM 추정)를 합산.
+      ...computeSetOptionCost({
+        setOption: opt, composition: setComposition, items, bom, materials,
+        calculations, itemLots, executionMaterials,
+        setPackagingCost: 0, setLaborCost: 0, setOverheadCost: 0,
+      }),
     })),
-    [setOptions, setComposition, items, bom, materials, costList],
+    [setOptions, setComposition, items, bom, materials, calculations, itemLots, executionMaterials],
   );
 
-  // 세트 원가 조회 검색 (세트명·옵션코드·제품유형).
+  // 세트 원가 조회 검색 (세트명·옵션코드·제품유형) + 펼침 상태.
   const [setCostQuery, setSetCostQuery] = useState<string>("");
+  const [expandedSet, setExpandedSet] = useState<string | null>(null);
   const filteredSetCosts = useMemo(() => {
     const q = setCostQuery.trim().toLowerCase();
     if (!q) return setCosts;
@@ -512,14 +518,22 @@ export default function CostClient({
                     {setOptions.length === 0 ? "등록된 세트 옵션이 없습니다." : "검색 결과가 없습니다."}
                   </td></tr>
                 ) : filteredSetCosts.map((s) => {
-                  const compCount = s.itemBreakdown.length;
+                  const compCount = s.breakdown.length;
+                  const isExp = expandedSet === s.option.id;
+                  const srcLabel = (src: string) =>
+                    src === "saved" ? "저장원가" : src === "actual" ? "실제LOT" : src === "bom" ? "BOM추정" : "미등록";
                   return (
-                  <tr key={s.option.id} className="border-b border-border/50">
+                  <Fragment key={s.option.id}>
+                  <tr className="border-b border-border/50 cursor-pointer hover:bg-bg-subtle/40"
+                    onClick={() => setExpandedSet(isExp ? null : s.option.id)}>
                     <td className="py-1.5 pr-2">
                       <span className="text-xs px-1.5 py-0.5 rounded bg-beige-100 text-ink-800 border border-beige-200">{s.option.productType}</span>
                     </td>
                     <td className="pr-2">{s.option.setSize}</td>
-                    <td className="pr-2 font-medium text-ink-900">{s.option.optionName || <span className="text-ink-400">(이름 없음)</span>}</td>
+                    <td className="pr-2 font-medium text-ink-900">
+                      <span className="text-ink-400 mr-1">{isExp ? "▾" : "▸"}</span>
+                      {s.option.optionName || <span className="text-ink-400">(이름 없음)</span>}
+                    </td>
                     <td className="pr-2 font-mono text-xs">{s.option.optionCode}</td>
                     <td className="pr-2 text-center tabular-nums">
                       {compCount > 0
@@ -527,9 +541,22 @@ export default function CostClient({
                         : <span className="text-red-600" title="세트 구성이 없어 원가가 0입니다">0종 ⚠</span>}
                     </td>
                     <td className="pr-2 text-right tabular-nums">{formatCurrency(s.itemTotal)}</td>
-                    <td className="pr-2 text-right tabular-nums">{formatCurrency(s.assembly + s.packaging)}</td>
-                    <td className="text-right tabular-nums font-bold">{formatCurrency(s.perSet)}</td>
+                    <td className="pr-2 text-right tabular-nums">{formatCurrency(s.packaging + s.labor + s.overhead)}</td>
+                    <td className="text-right tabular-nums font-bold">{formatCurrency(s.total)}</td>
                   </tr>
+                  {isExp && s.breakdown.map((b, i) => (
+                    <tr key={`${s.option.id}-${i}`} className="bg-bg-subtle/30 text-xs text-ink-600 border-b border-border/40">
+                      <td></td>
+                      <td></td>
+                      <td className="pl-6 py-1">{b.colorName} <span className="text-ink-400 font-mono">({b.itemNo})</span></td>
+                      <td><span className="text-[10px] px-1 py-0.5 rounded bg-white border border-border">{srcLabel(b.source)}</span></td>
+                      <td className="text-center tabular-nums">×{b.qty}</td>
+                      <td className="text-right tabular-nums">{formatCurrency(b.perUnit)}<span className="text-ink-400">/개</span></td>
+                      <td></td>
+                      <td className="text-right tabular-nums">{formatCurrency(b.subtotal)}</td>
+                    </tr>
+                  ))}
+                  </Fragment>
                   );
                 })}
               </tbody>
@@ -1754,7 +1781,7 @@ export default function CostClient({
                   <b>{sc.option.productType} {sc.option.setSize} · {sc.option.optionName}</b>
                   <span className="text-ink-500 ml-2 font-mono text-xs">{sc.option.optionCode}</span>
                 </div>
-                <span className="tabular-nums font-semibold">{formatCurrency(sc.perSet)}</span>
+                <span className="tabular-nums font-semibold">{formatCurrency(sc.total)}</span>
               </summary>
               <div className="px-3 pb-3">
                 <table className="w-full text-sm">
@@ -1767,30 +1794,25 @@ export default function CostClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {sc.itemBreakdown.map((b) => (
+                    {sc.breakdown.map((b) => (
                       <tr key={b.itemNo}>
                         <td className="table-td">
                           <span className="font-mono text-xs text-ink-700 mr-2">{b.itemNo}</span>
                           {b.colorName}
                         </td>
-                        <td className="table-td text-right tabular-nums">{formatCurrency(b.unitCost)}</td>
+                        <td className="table-td text-right tabular-nums">{formatCurrency(b.perUnit)}</td>
                         <td className="table-td text-right tabular-nums">×{b.qty}</td>
-                        <td className="table-td text-right tabular-nums font-semibold">{formatCurrency(b.lineTotal)}</td>
+                        <td className="table-td text-right tabular-nums font-semibold">{formatCurrency(b.subtotal)}</td>
                       </tr>
                     ))}
                     <tr>
-                      <td className="table-td text-ink-600">조립</td>
+                      <td className="table-td text-ink-600">조립·포장</td>
                       <td className="table-td"></td><td className="table-td"></td>
-                      <td className="table-td text-right tabular-nums">{formatCurrency(sc.assembly)}</td>
-                    </tr>
-                    <tr>
-                      <td className="table-td text-ink-600">패키지</td>
-                      <td className="table-td"></td><td className="table-td"></td>
-                      <td className="table-td text-right tabular-nums">{formatCurrency(sc.packaging)}</td>
+                      <td className="table-td text-right tabular-nums">{formatCurrency(sc.packaging + sc.labor + sc.overhead)}</td>
                     </tr>
                     <tr className="bg-bg-subtle">
                       <td className="table-td font-semibold" colSpan={3}>1세트 원가 합계</td>
-                      <td className="table-td text-right tabular-nums font-semibold">{formatCurrency(sc.perSet)}</td>
+                      <td className="table-td text-right tabular-nums font-semibold">{formatCurrency(sc.total)}</td>
                     </tr>
                   </tbody>
                 </table>
