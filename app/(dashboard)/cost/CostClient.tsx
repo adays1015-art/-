@@ -345,6 +345,18 @@ export default function CostClient({
     [setOptions, setComposition, items, bom, materials, costList],
   );
 
+  // 세트 원가 조회 검색 (세트명·옵션코드·제품유형).
+  const [setCostQuery, setSetCostQuery] = useState<string>("");
+  const filteredSetCosts = useMemo(() => {
+    const q = setCostQuery.trim().toLowerCase();
+    if (!q) return setCosts;
+    return setCosts.filter((s) =>
+      (s.option.optionName ?? "").toLowerCase().includes(q)
+      || (s.option.optionCode ?? "").toLowerCase().includes(q)
+      || (s.option.productType ?? "").toLowerCase().includes(q)
+      || (s.option.setSize ?? "").toLowerCase().includes(q));
+  }, [setCosts, setCostQuery]);
+
   function setDraft(id: string, patch: Partial<CostItem>) {
     setDrafts((d) => ({ ...d, [id]: { ...d[id], ...patch } }));
   }
@@ -467,6 +479,58 @@ export default function CostClient({
           </div>
         }
       />
+
+      {/* ─── 세트 원가 조회 (이름·코드로 검색) ───────────────── */}
+      {!isUpcycleCost && (
+        <div className="panel panel-pad mb-6">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <Layers size={14} className="text-ink-500" />
+            <h2 className="text-sm font-semibold text-ink-900">세트 원가 조회</h2>
+            <span className="text-[11px] text-ink-500">세트 1개 원가 = 구성 품목 원가 합 + 조립·포장비</span>
+            <input className="input max-w-[220px] ml-auto"
+              placeholder="세트명·코드 검색 (예: 거베라)"
+              value={setCostQuery}
+              onChange={(e) => setSetCostQuery(e.target.value)} />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-ink-500 border-b border-border">
+                  <th className="py-1.5 pr-2">제품유형</th>
+                  <th className="pr-2">세트유형</th>
+                  <th className="pr-2">세트명</th>
+                  <th className="pr-2">옵션코드</th>
+                  <th className="pr-2 text-right">품목 원가</th>
+                  <th className="pr-2 text-right">조립·포장</th>
+                  <th className="text-right">세트 1개 원가</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSetCosts.length === 0 ? (
+                  <tr><td colSpan={7} className="py-4 text-center text-ink-500">
+                    {setOptions.length === 0 ? "등록된 세트 옵션이 없습니다." : "검색 결과가 없습니다."}
+                  </td></tr>
+                ) : filteredSetCosts.map((s) => (
+                  <tr key={s.option.id} className="border-b border-border/50">
+                    <td className="py-1.5 pr-2">
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-beige-100 text-ink-800 border border-beige-200">{s.option.productType}</span>
+                    </td>
+                    <td className="pr-2">{s.option.setSize}</td>
+                    <td className="pr-2 font-medium text-ink-900">{s.option.optionName || <span className="text-ink-400">(이름 없음)</span>}</td>
+                    <td className="pr-2 font-mono text-xs">{s.option.optionCode}</td>
+                    <td className="pr-2 text-right tabular-nums">{formatCurrency(s.itemTotal)}</td>
+                    <td className="pr-2 text-right tabular-nums">{formatCurrency(s.assembly + s.packaging)}</td>
+                    <td className="text-right tabular-nums font-bold">{formatCurrency(s.perSet)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="text-[11px] text-ink-500 mt-2">
+            원가가 0으로 나오면 — 구성 품목의 BOM/원료 <b>단가</b>가 비어있거나 세트 <b>구성이 미정의</b>인 경우예요.
+          </div>
+        </div>
+      )}
 
       {/* ─── 조립 BOM (세트BOM) 패널 — 원가계산 화면에서 숨김 ────
           향후 별도 관리 화면(/set-bom 등)으로 분리 예정. 컴포넌트
