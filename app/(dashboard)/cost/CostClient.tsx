@@ -500,17 +500,20 @@ export default function CostClient({
                   <th className="pr-2">세트유형</th>
                   <th className="pr-2">세트명</th>
                   <th className="pr-2">옵션코드</th>
-                  <th className="pr-2 text-right">품목 원가</th>
+                  <th className="pr-2 text-center">구성</th>
+                  <th className="pr-2 text-right">구성품목 원가 합</th>
                   <th className="pr-2 text-right">조립·포장</th>
                   <th className="text-right">세트 1개 원가</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSetCosts.length === 0 ? (
-                  <tr><td colSpan={7} className="py-4 text-center text-ink-500">
+                  <tr><td colSpan={8} className="py-4 text-center text-ink-500">
                     {setOptions.length === 0 ? "등록된 세트 옵션이 없습니다." : "검색 결과가 없습니다."}
                   </td></tr>
-                ) : filteredSetCosts.map((s) => (
+                ) : filteredSetCosts.map((s) => {
+                  const compCount = s.itemBreakdown.length;
+                  return (
                   <tr key={s.option.id} className="border-b border-border/50">
                     <td className="py-1.5 pr-2">
                       <span className="text-xs px-1.5 py-0.5 rounded bg-beige-100 text-ink-800 border border-beige-200">{s.option.productType}</span>
@@ -518,16 +521,24 @@ export default function CostClient({
                     <td className="pr-2">{s.option.setSize}</td>
                     <td className="pr-2 font-medium text-ink-900">{s.option.optionName || <span className="text-ink-400">(이름 없음)</span>}</td>
                     <td className="pr-2 font-mono text-xs">{s.option.optionCode}</td>
+                    <td className="pr-2 text-center tabular-nums">
+                      {compCount > 0
+                        ? <span>{compCount}종</span>
+                        : <span className="text-red-600" title="세트 구성이 없어 원가가 0입니다">0종 ⚠</span>}
+                    </td>
                     <td className="pr-2 text-right tabular-nums">{formatCurrency(s.itemTotal)}</td>
                     <td className="pr-2 text-right tabular-nums">{formatCurrency(s.assembly + s.packaging)}</td>
                     <td className="text-right tabular-nums font-bold">{formatCurrency(s.perSet)}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
           <div className="text-[11px] text-ink-500 mt-2">
-            원가가 0으로 나오면 — 구성 품목의 BOM/원료 <b>단가</b>가 비어있거나 세트 <b>구성이 미정의</b>인 경우예요.
+            <b>세트 1개 원가 = 구성 색상 각 1개 원가를 모두 합산</b> + 조립·포장비.
+            <b className="text-red-600"> 구성이 0종</b>이면 세트 구성이 미정의 → <a href="/set-composition" className="underline">세트 구성</a>에서 색상들을 등록하세요.
+            (구성 종수가 맞는데 원가가 낮으면 각 품목의 원료 <b>단가</b>를 확인)
           </div>
         </div>
       )}
