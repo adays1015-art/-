@@ -2,10 +2,11 @@ import type {
   Dataset, ErpCut, Inference, Point, Recommendation, Remnant, ScrapReason,
 } from "./types";
 import { circle, netArea, steelWeightKg } from "./geometry";
+import { kstDayStart, kstParts } from "./time";
 
 // 샘플 데이터 생성기 — DB 연결 전 대시보드 확인용.
 // 16주 시뮬레이션: 앞 4주는 V1.0 기준선, 5주차부터 V2.0 도입 후 6주에 걸쳐 목표 수준으로 개선.
-// 같은 시드면 항상 같은 데이터가 나온다.
+// 같은 시드·같은 종료 시각이면 항상 같은 데이터가 나온다. 종료 시각은 기본적으로 현재 시각(정시 기준).
 
 const TENANT = "daelim";
 const SITE = "busan-main";
@@ -15,7 +16,6 @@ const WARMUP_WEEKS = 10; // 기준선 이전부터 운영 중이던 상태를 �
 const RAMP_WEEKS = 6;
 const DAY = 86_400_000;
 
-export const SEED_NOW = new Date("2026-10-19T09:00:00+09:00");
 
 const MATERIALS = ["SS275", "SS275", "SS275", "SM355", "SM355", "SS400"];
 const THICKNESSES = [6, 9, 12, 12, 16, 20, 25];
@@ -31,14 +31,14 @@ function mulberry32(seed: number) {
   };
 }
 
-export function generateDataset(seed = 20261019): Dataset {
+export function generateDataset(seed = 20261019, endAt = Math.floor(Date.now() / 3_600_000) * 3_600_000): Dataset {
   const rnd = mulberry32(seed);
   const between = (a: number, b: number) => a + (b - a) * rnd();
   const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)];
   const jitter = (v: number, spread: number) => v + (rnd() - 0.5) * 2 * spread;
   const round10 = (v: number) => Math.round(v / 10) * 10;
 
-  const end = SEED_NOW.getTime();
+  const end = endAt;
   const baselineStart = end - WEEKS * 7 * DAY;
   const start = baselineStart - WARMUP_WEEKS * 7 * DAY;
   const pilotStart = baselineStart + BASELINE_WEEKS * 7 * DAY;
@@ -79,14 +79,16 @@ export function generateDataset(seed = 20261019): Dataset {
   let seq = 0;
   const id = (p: string) => `${p}-${String(++seq).padStart(5, "0")}`;
 
-  for (let t = start; t < end; t += DAY) {
-    const weekday = new Date(t).getDay();
+  // 하루 단위 루프는 KST 자정 기준으로 맞추고, 종료 시각 이후의 사건은 만들지 않는다
+  for (let t = kstDayStart(start); t < end; t += DAY) {
+    const weekday = kstParts(t).weekday;
     if (weekday === 0) continue; // 일요일 휴무
     const p = progress(t);
     const cuts = Math.round(between(6, 11) * (weekday === 6 ? 0.4 : 1));
 
     for (let i = 0; i < cuts; i++) {
       const at = t + between(8, 18) * 3_600_000;
+      if (at + 40 * 60_000 >= end) continue;
       const produced = rnd() < 0.85;
       const cut: ErpCut = { id: id("cut"), siteId: SITE, at: new Date(at).toISOString(), producedRemnant: produced, remnantId: null };
       erpCuts.push(cut);
@@ -117,7 +119,7 @@ export function generateDataset(seed = 20261019): Dataset {
         id: id("rm"),
         tenantId: TENANT,
         siteId: SITE,
-        engravedId: `DL${new Date(createdAt).toISOString().slice(2, 10).replace(/-/g, "")}-${String(seq).padStart(4, "0")}`,
+        engravedId: `DL${new Date(createdAt + 9 * 3_600_000).toISOString().slice(2, 10).replace(/-/g, "")}-${String(seq).padStart(4, "0")}`,
         material,
         thicknessMm,
         outline,
@@ -158,6 +160,7 @@ export function generateDataset(seed = 20261019): Dataset {
     const requests = Math.round(between(4, 8) * (weekday === 6 ? 0.4 : 1));
     for (let i = 0; i < requests; i++) {
       const at = t + between(8, 18) * 3_600_000;
+      if (at >= end) continue;
       const ai = at >= pilotStart;
       const pool = remnants.filter((x) => Date.parse(x.createdAt) < at).slice(-60);
       const cand = ai ? [pick(pool), pick(pool), pick(pool)].filter(Boolean).map((x) => x.id) : [];
@@ -183,7 +186,7 @@ export function generateDataset(seed = 20261019): Dataset {
   }
 
   return {
-    generatedAt: SEED_NOW.toISOString(),
+    generatedAt: new Date(end).toISOString(),
     baselineStart: new Date(baselineStart).toISOString(),
     pilotStart: new Date(pilotStart).toISOString(),
     remnants,

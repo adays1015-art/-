@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Layers } from "lucide-react";
+import { LayoutDashboard, Layers, Camera } from "lucide-react";
 
 export const NAV = [
   { href: "/", label: "대시보드", icon: LayoutDashboard },
   { href: "/remnants", label: "잔재 목록", icon: Layers },
+  { href: "/register", label: "잔재 등록", icon: Camera },
 ];
 
 export function isActive(pathname: string | null, href: string) {

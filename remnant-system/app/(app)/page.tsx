@@ -5,6 +5,7 @@ import RemnantShape from "@/components/RemnantShape";
 import { Table, THead, TBody, TR, TH, TD, Empty } from "@/components/Table";
 import { KPI_DEFS, computeKpis, weeklySeries, isMet } from "@/lib/kpi";
 import { ageDays, getDataset, inventory, longStored, now } from "@/lib/store";
+import { fmtKstDate } from "@/lib/time";
 
 // 실데이터 연결 시 매 요청마다 최신 KPI를 계산하도록 정적 생성하지 않는다.
 export const dynamic = "force-dynamic";
@@ -12,10 +13,7 @@ export const dynamic = "force-dynamic";
 const WINDOW_DAYS = 28;
 const LONG_DAYS = 45;
 
-const fmtDate = (t: number) => {
-  const d = new Date(t);
-  return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
-};
+const fmtDate = fmtKstDate;
 const t1 = (n: number) => n.toLocaleString("ko-KR", { maximumFractionDigits: 1 });
 const weight = (kg: number) => (kg >= 1000 ? `${t1(kg / 1000)}톤` : `${Math.round(kg).toLocaleString()}kg`);
 

@@ -1,5 +1,7 @@
-import type { Dataset, Remnant, RemnantStatus } from "./types";
-import { generateDataset, SEED_NOW } from "./seed";
+import type { Dataset, Point, Remnant, RemnantStatus } from "./types";
+import { generateDataset } from "./seed";
+import { bbox, netArea, steelWeightKg } from "./geometry";
+import { kstParts } from "./time";
 
 // 데이터 접근 계층. 지금은 인메모리 샘플 데이터 모드이고,
 // PostgreSQL(db/schema.sql) 연결 시 이 파일의 함수 구현만 교체한다 — 화면·KPI 코드는 그대로.
@@ -13,9 +15,8 @@ export function getDataset(): Dataset {
 
 export const isSampleMode = true;
 
-// 샘플 데이터는 고정 시점 기준으로 만들어지므로 "현재"도 그 시점으로 맞춘다.
 export function now(): number {
-  return isSampleMode ? SEED_NOW.getTime() : Date.now();
+  return Date.now();
 }
 
 export interface RemnantFilter {
@@ -85,4 +86,63 @@ export function longStored(minDays = 45): Remnant[] {
 
 export function materials(): string[] {
   return Array.from(new Set(getDataset().remnants.map((r) => r.material))).sort();
+}
+
+export interface NewRemnantInput {
+  engravedId: string;
+  material: string;
+  thicknessMm: number;
+  outline: Point[];   // mm, 원점 (0,0) 기준
+  rack: string;
+  photo?: string | null;
+}
+
+export class InputError extends Error {}
+
+// 작업자 등록 — 지금은 AI 인식 전 단계라 source = manual.
+// 샘플 모드에서는 서버 메모리에만 저장된다 (서버 재시작 시 사라짐).
+export function addRemnant(input: NewRemnantInput): Remnant {
+  const ds = getDataset();
+  const engravedId = input.engravedId.trim();
+  if (!engravedId) throw new InputError("각인 ID를 입력하세요.");
+  if (ds.remnants.some((r) => r.engravedId === engravedId)) throw new InputError(`이미 등록된 각인 ID입니다: ${engravedId}`);
+  if (!input.material) throw new InputError("재질을 선택하세요.");
+  if (!(input.thicknessMm > 0 && input.thicknessMm <= 200)) throw new InputError("두께는 0~200mm 사이여야 합니다.");
+  if (input.outline.length < 3) throw new InputError("외곽선 꼭짓점이 3개 이상 필요합니다.");
+  const b = bbox(input.outline);
+  if (b.width <= 0 || b.height <= 0 || b.width > 12000 || b.height > 12000) throw new InputError("잔재 크기가 올바르지 않습니다.");
+  const areaMm2 = Math.round(netArea(input.outline, []));
+  if (areaMm2 <= 0) throw new InputError("외곽선 면적이 0입니다.");
+
+  const r: Remnant = {
+    id: `rm-u${Date.now().toString(36)}`,
+    tenantId: "daelim",
+    siteId: "busan-main",
+    engravedId,
+    material: input.material,
+    thicknessMm: input.thicknessMm,
+    outline: input.outline,
+    holes: [],
+    areaMm2,
+    weightKg: Math.round(steelWeightKg(areaMm2, input.thicknessMm) * 10) / 10,
+    status: "available",
+    parentId: null,
+    rack: input.rack.trim() || "미지정",
+    source: "manual",
+    createdAt: new Date().toISOString(),
+    closedAt: null,
+    scrapReason: null,
+    photo: input.photo ?? null,
+  };
+  ds.remnants.push(r);
+  return r;
+}
+
+// 오늘 날짜 기반 각인 ID 제안 (DL + YYMMDD + 일련번호)
+export function suggestEngravedId(): string {
+  const p = kstParts(Date.now());
+  const day = `${String(p.y).slice(2)}${String(p.m).padStart(2, "0")}${String(p.d).padStart(2, "0")}`;
+  const prefix = `DL${day}-`;
+  const used = getDataset().remnants.filter((r) => r.engravedId.startsWith(prefix)).length;
+  return `${prefix}${String(9001 + used).padStart(4, "0")}`;
 }

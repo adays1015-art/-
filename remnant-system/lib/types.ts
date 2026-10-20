@@ -31,6 +31,7 @@ export interface Remnant {
   createdAt: string;         // ISO
   closedAt: string | null;   // used/scrapped 확정 시각
   scrapReason: ScrapReason | null;
+  photo?: string | null;     // 등록 사진 (지금은 축소 JPEG data URL, 오브젝트 스토리지 연결 후 키로 교체)
 }
 
 export interface Inference {

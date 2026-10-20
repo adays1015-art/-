@@ -6,6 +6,7 @@ import RemnantShape from "@/components/RemnantShape";
 import StatusBadge, { sourceLabel } from "@/components/StatusBadge";
 import { bbox } from "@/lib/geometry";
 import { ageDays, getRemnant } from "@/lib/store";
+import { fmtKstDateTime } from "@/lib/time";
 import type { Remnant, ScrapReason } from "@/lib/types";
 
 const SCRAP_REASON: Record<ScrapReason, string> = {
@@ -14,9 +15,9 @@ const SCRAP_REASON: Record<ScrapReason, string> = {
   aged: "장기 방치",
 };
 
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" }) : "—");
+const fmt = fmtKstDateTime;
 
-export default function RemnantDetailPage({ params }: { params: { id: string } }) {
+export default function RemnantDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { registered?: string } }) {
   const data = getRemnant(params.id);
   if (!data) notFound();
   const { remnant: r, parent, children, inference } = data;
@@ -41,11 +42,26 @@ export default function RemnantDetailPage({ params }: { params: { id: string } }
       <Link href="/remnants" className="inline-flex items-center gap-1 text-sm text-ink-600 hover:text-brand-700 mb-3">
         <ArrowLeft size={14} /> 잔재 목록
       </Link>
-      <PageHeader title={r.engravedId} description={`내부 ID ${r.id}`} />
+      <PageHeader title={r.engravedId} description={`내부 ID ${r.id}`}
+        actions={<Link href="/register" className="btn-primary">새 잔재 등록</Link>} />
+      {searchParams.registered && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
+          등록되었습니다. 대시보드의 재고와 KPI에 바로 반영됩니다.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="panel panel-pad lg:col-span-3 flex items-center justify-center">
-          <RemnantShape outline={r.outline} holes={r.holes} size={460} showDims />
+        <div className="lg:col-span-3 space-y-4">
+          <div className="panel panel-pad flex items-center justify-center">
+            <RemnantShape outline={r.outline} holes={r.holes} size={460} showDims />
+          </div>
+          {r.photo && (
+            <div className="panel panel-pad">
+              <div className="panel-title mb-3">등록 사진</div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={r.photo} alt={`${r.engravedId} 등록 사진`} className="w-full rounded-lg border border-border" />
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-2 space-y-4">

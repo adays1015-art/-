@@ -1,11 +1,12 @@
 import type { KpiDef, WeeklyPoint } from "@/lib/kpi";
 import { formatKpi, isMet } from "@/lib/kpi";
+import { kstParts } from "@/lib/time";
 
 const W = 320, H = 120, L = 34, R = 8, T = 10, B = 20;
 
 function shortDate(t: number) {
-  const d = new Date(t);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  const p = kstParts(t);
+  return `${p.m}/${p.d}`;
 }
 
 // KPI 1종: 현재값(최근 4주) · V1.0 기준 → 목표 · 주간 추이 (목표선 점선, V2.0 도입 시점 세로선)

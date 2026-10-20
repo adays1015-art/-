@@ -1,3 +1,4 @@
+import { kstWeekStart } from "./time";
 import type { Dataset } from "./types";
 
 // 실증 KPI 6종 — 기획서 2.2절 산출식을 그대로 코드로 옮긴 것.
@@ -81,13 +82,10 @@ export function computeKpis(ds: Dataset, from: number, to: number): KpiValues {
 
 const WEEK = 7 * 86_400_000;
 
-// 월요일 0시 기준 주간 구간
+// 월요일 0시(KST) 기준 주간 구간
 export function weekStarts(fromIso: string, toIso: string): number[] {
-  const d = new Date(fromIso);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   const out: number[] = [];
-  for (let t = d.getTime(); t < Date.parse(toIso); t += WEEK) out.push(t);
+  for (let t = kstWeekStart(Date.parse(fromIso)); t < Date.parse(toIso); t += WEEK) out.push(t);
   return out;
 }
 
